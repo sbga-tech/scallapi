@@ -3355,7 +3355,7 @@ func authAllowedOnRoute(route *routes.Route, auth *Auth) bool {
 	if name != "" {
 		name = filepath.Base(name)
 	}
-	return route.AllowsFile(name)
+	return route.AllowsCredential(name, auth.Attributes[AttributeConfigGroup])
 }
 
 // RouteSnapshot returns the immutable endpoint routes currently used for selection.

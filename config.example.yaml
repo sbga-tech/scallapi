@@ -179,13 +179,13 @@ access:
 # Optional named endpoint prefixes. Longest segment-boundary prefix wins.
 # Unmatched requests keep the normal routing and credential behavior.
 # Every nonempty selector must match; credentials never fall back outside a route.
-# Config API-key credentials have no auth file and can only match providers.
+# Credentials match exact auth file base names or config API-key group names.
 # routes:
 #   - name: cyber
 #     path: /v1/cyber
 #     rewrite-to: /v1 # /v1/cyber/responses becomes /v1/responses.
 #     providers: [codex] # Optional, case-insensitive provider names.
-#     auth-files: [codex-cyber.json] # Optional, exact auth file base names.
+#     credentials: [codex-cyber.json, codex-team] # Optional credential names.
 #   - name: mirrored
 #     path: /scoped
 #     rewrite-to: "" # Strip /scoped to mirror the whole API tree; exact match becomes /.

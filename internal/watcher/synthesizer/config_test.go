@@ -1,12 +1,14 @@
 package synthesizer
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 )
 
@@ -41,6 +43,86 @@ func TestConfigSynthesizer_Synthesize_NilConfig(t *testing.T) {
 	}
 	if len(auths) != 0 {
 		t.Fatalf("expected empty auths, got %d", len(auths))
+	}
+}
+
+func TestConfigSynthesizer_RouteCredentialsGroups(t *testing.T) {
+	for _, provider := range []string{"gemini", "interactions", "vertex", "codex", "claude", "xai", "meta", "openai-compatibility"} {
+		t.Run(provider, func(t *testing.T) {
+			raw := "config-version: 8\nroutes: [{name: selected, path: /selected, credentials: [beta]}]\napi-keys:\n  " + provider + ":\n" + `    - name: alpha
+      base-url: https://example.invalid/v1
+      keys: [{api-key: alpha-key}]
+    - name: beta
+      base-url: https://example.invalid/v1
+      keys: [{api-key: beta-first-key}, {api-key: beta-second-key}]
+    - base-url: https://example.invalid/v1
+      keys: [{api-key: unnamed-key}]
+`
+			cfg, errParse := config.ParseConfigBytes([]byte(raw))
+			if errParse != nil {
+				t.Fatal(errParse)
+			}
+			auths, errSynthesize := NewConfigSynthesizer().Synthesize(&SynthesisContext{Config: cfg, Now: time.Now(), IDGenerator: NewStableIDGenerator()})
+			if errSynthesize != nil {
+				t.Fatal(errSynthesize)
+			}
+			if len(auths) != 4 {
+				t.Fatalf("auth count = %d, want 4", len(auths))
+			}
+			manager := coreauth.NewManager(nil, nil, nil)
+			manager.SetRoutes(cfg.Routes)
+			reg := registry.GetGlobalRegistry()
+			for i, auth := range auths {
+				want := i == 1 || i == 2
+				if got := manager.RouteAllowsAuth("selected", auth); got != want {
+					t.Fatalf("auth %d group %q eligible = %v, want %v", i, auth.Attributes[coreauth.AttributeConfigGroup], got, want)
+				}
+				if _, errRegister := manager.Register(context.Background(), auth); errRegister != nil {
+					t.Fatal(errRegister)
+				}
+				reg.RegisterClient(auth.ID, auth.Provider, []*registry.ModelInfo{{ID: "group-model-" + strconv.Itoa(i)}})
+				t.Cleanup(func() { reg.UnregisterClient(auth.ID) })
+			}
+			ids := manager.RouteModelIDs("selected")
+			if len(ids) != 2 {
+				t.Fatalf("route model IDs = %v, want only beta's two models", ids)
+			}
+			for _, id := range []string{"group-model-1", "group-model-2"} {
+				if _, ok := ids[id]; !ok {
+					t.Fatalf("route model IDs missing %q: %v", id, ids)
+				}
+			}
+		})
+	}
+}
+
+func TestConfigSynthesizer_DuplicateNamedGroups(t *testing.T) {
+	for _, provider := range []string{"gemini", "interactions", "vertex"} {
+		t.Run(provider, func(t *testing.T) {
+			raw := "config-version: 8\nroutes: [{name: selected, path: /selected, credentials: [beta]}]\napi-keys:\n  " + provider + ":\n" + `    - name: alpha
+      base-url: https://example.invalid/v1
+      keys: [{api-key: shared-key}]
+    - name: beta
+      base-url: https://example.invalid/v1
+      keys: [{api-key: shared-key}]
+`
+			cfg, errParse := config.ParseConfigBytes([]byte(raw))
+			if errParse != nil {
+				t.Fatal(errParse)
+			}
+			auths, errSynthesize := NewConfigSynthesizer().Synthesize(&SynthesisContext{Config: cfg, Now: time.Now(), IDGenerator: NewStableIDGenerator()})
+			if errSynthesize != nil {
+				t.Fatal(errSynthesize)
+			}
+			if len(auths) != 1 || auths[0].Attributes[coreauth.AttributeConfigGroup] != "alpha" {
+				t.Fatalf("duplicate groups did not collapse into the first group: %v", auths)
+			}
+			manager := coreauth.NewManager(nil, nil, nil)
+			manager.SetRoutes(cfg.Routes)
+			if manager.RouteAllowsAuth("selected", auths[0]) {
+				t.Fatal("route selecting the collapsed second group allowed the first group's key")
+			}
+		})
 	}
 }
 

@@ -49,7 +49,7 @@ func TestEndpointRouteWrapperRewritesGinAndContext(t *testing.T) {
 
 func TestEndpointRouteWrapperUnmatchedAndReload(t *testing.T) {
 	var store Store
-	configs := []Config{{Name: "old", Path: "/old", Providers: []string{"codex"}, AuthFiles: []string{"old.json"}}}
+	configs := []Config{{Name: "old", Path: "/old", Providers: []string{"codex"}, Credentials: []string{"old.json"}}}
 	store.Update(configs)
 	before := store.Load()
 	configs[0].Providers[0] = "claude"

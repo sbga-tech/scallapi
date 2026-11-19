@@ -37,7 +37,7 @@ func TestEndpointRouteConfigValidation(t *testing.T) {
 }
 
 func TestEndpointRouteConfigV8RoundTrip(t *testing.T) {
-	body := []byte("config-version: 8\nroutes:\n  - name: cyber\n    path: /cyber\n    rewrite-to: /v1\n    providers: [' CODEX ', 'Claude']\n    auth-files: [cyber.json]\nrequests:\n  payload:\n    override:\n      - models: [{name: '*', route: cyber}]\n        params: {temperature: 0.2}\n")
+	body := []byte("config-version: 8\nroutes:\n  - name: cyber\n    path: /cyber\n    rewrite-to: /v1\n    providers: [' CODEX ', 'Claude']\n    credentials: [cyber.json]\nrequests:\n  payload:\n    override:\n      - models: [{name: '*', route: cyber}]\n        params: {temperature: 0.2}\n")
 	cfg, errParse := ParseConfigBytes(body)
 	if errParse != nil {
 		t.Fatal(errParse)
@@ -56,7 +56,7 @@ func TestEndpointRouteConfigV8RoundTrip(t *testing.T) {
 	if errDecode := yaml.Unmarshal(normalized, &decoded); errDecode != nil {
 		t.Fatal(errDecode)
 	}
-	if len(decoded.Routes) != 1 || decoded.Routes[0].AuthFiles[0] != "cyber.json" {
+	if len(decoded.Routes) != 1 || decoded.Routes[0].Credentials[0] != "cyber.json" {
 		t.Fatalf("routes lost in v8 layout: %s", normalized)
 	}
 	encoded, errMarshal := yaml.Marshal(cfg)

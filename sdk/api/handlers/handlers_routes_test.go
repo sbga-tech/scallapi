@@ -73,7 +73,7 @@ func TestEndpointRouteProvidersForExecution(t *testing.T) {
 
 func TestEndpointRouteModelListFormatsAndUnroutedBytes(t *testing.T) {
 	manager := coreauth.NewManager(nil, nil, nil)
-	configs := []routes.Config{{Name: "selected", Path: "/selected", AuthFiles: []string{"selected.json"}}}
+	configs := []routes.Config{{Name: "selected", Path: "/selected", Credentials: []string{"selected.json"}}}
 	manager.SetRoutes(configs)
 	reg := registry.GetGlobalRegistry()
 	for _, tc := range []struct{ id, file, model string }{{t.Name() + "-selected", "selected.json", "selected-model"}, {t.Name() + "-outside", "outside.json", "outside-model"}} {

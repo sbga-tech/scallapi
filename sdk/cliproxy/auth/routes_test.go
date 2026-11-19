@@ -13,7 +13,7 @@ import (
 func TestEndpointRouteAuthEligibility(t *testing.T) {
 	snapshot := routes.Compile([]routes.Config{
 		{Name: "provider", Path: "/provider", Providers: []string{"codex"}},
-		{Name: "file", Path: "/file", Providers: []string{"codex"}, AuthFiles: []string{"allowed.json"}},
+		{Name: "file", Path: "/file", Providers: []string{"codex"}, Credentials: []string{"allowed.json"}},
 		{Name: "compat", Path: "/compat", Providers: []string{"openai-compatible-acme"}},
 		{Name: "original", Path: "/original", Providers: []string{"openai-compatibility"}},
 	})
@@ -31,7 +31,7 @@ func TestEndpointRouteAuthEligibility(t *testing.T) {
 		{"file matches", "file", fileAuth, true},
 		{"path basename matches", "file", pathAuth, true},
 		{"different file", "file", &Auth{Provider: "codex", FileName: "other.json"}, false},
-		{"config key excluded with files", "file", configAuth, false},
+		{"config key excluded with credentials", "file", configAuth, false},
 		{"config key allowed by provider", "provider", configAuth, true},
 		{"canonical compatibility name", "compat", compatAuth, true},
 		{"original compatibility name", "original", compatAuth, true},
@@ -66,7 +66,7 @@ func TestEndpointRouteSelectionNoFallbackAndReload(t *testing.T) {
 		reg.RegisterClient(a.ID, "codex", []*registry.ModelInfo{{ID: model, Object: "model"}})
 		t.Cleanup(func() { reg.UnregisterClient(a.ID) })
 	}
-	manager.SetConfig(&config.Config{Routes: []config.RouteConfig{{Name: "selected", Path: "/selected", Providers: []string{"codex"}, AuthFiles: []string{"allowed.json"}}}})
+	manager.SetConfig(&config.Config{Routes: []config.RouteConfig{{Name: "selected", Path: "/selected", Providers: []string{"codex"}, Credentials: []string{"allowed.json"}}}})
 	opts := coreexecutor.Options{Metadata: map[string]any{coreexecutor.RouteMetadataKey: "selected"}}
 	selected, _, errPick := manager.pickNext(ctx, "codex", model, opts, nil)
 	if errPick != nil || selected == nil || selected.FileName != "allowed.json" {

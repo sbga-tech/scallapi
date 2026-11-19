@@ -13,11 +13,11 @@ import (
 
 // Config describes a named endpoint and its credential selectors.
 type Config struct {
-	Name      string   `yaml:"name" json:"name"`
-	Path      string   `yaml:"path" json:"path"`
-	RewriteTo string   `yaml:"rewrite-to" json:"rewrite-to"`
-	Providers []string `yaml:"providers" json:"providers"`
-	AuthFiles []string `yaml:"auth-files" json:"auth-files"`
+	Name        string   `yaml:"name" json:"name"`
+	Path        string   `yaml:"path" json:"path"`
+	RewriteTo   string   `yaml:"rewrite-to" json:"rewrite-to"`
+	Providers   []string `yaml:"providers" json:"providers"`
+	Credentials []string `yaml:"credentials" json:"credentials"`
 }
 
 // Normalize validates routes and normalizes provider names in place.
@@ -49,8 +49,8 @@ func validPrefix(path string) bool {
 
 // Route is immutable after compilation. Selectors are intentionally not exposed.
 type Route struct {
-	name, path, rewriteTo string
-	providers, authFiles  map[string]struct{}
+	name, path, rewriteTo  string
+	providers, credentials map[string]struct{}
 }
 
 func (r *Route) Name() string {
@@ -79,16 +79,22 @@ func (r *Route) AllowsProvider(providers ...string) bool {
 	return false
 }
 
-// AllowsFile requires a file name only when auth-files is configured.
-func (r *Route) AllowsFile(name string) bool {
+// AllowsCredential accepts any file base name or config API-key group name.
+func (r *Route) AllowsCredential(names ...string) bool {
 	if r == nil {
 		return false
 	}
-	if len(r.authFiles) == 0 {
+	if len(r.credentials) == 0 {
 		return true
 	}
-	_, ok := r.authFiles[name]
-	return name != "" && ok
+	for _, name := range names {
+		if name != "" {
+			if _, ok := r.credentials[name]; ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Snapshot is an immutable, longest-prefix-first routing table.
@@ -102,12 +108,12 @@ type Snapshot struct {
 func Compile(configs []Config) *Snapshot {
 	s := &Snapshot{named: make(map[string]*Route, len(configs))}
 	for _, c := range configs {
-		r := &Route{name: c.Name, path: c.Path, rewriteTo: c.RewriteTo, providers: make(map[string]struct{}, len(c.Providers)), authFiles: make(map[string]struct{}, len(c.AuthFiles))}
+		r := &Route{name: c.Name, path: c.Path, rewriteTo: c.RewriteTo, providers: make(map[string]struct{}, len(c.Providers)), credentials: make(map[string]struct{}, len(c.Credentials))}
 		for _, p := range c.Providers {
 			r.providers[strings.ToLower(strings.TrimSpace(p))] = struct{}{}
 		}
-		for _, f := range c.AuthFiles {
-			r.authFiles[f] = struct{}{}
+		for _, name := range c.Credentials {
+			r.credentials[name] = struct{}{}
 		}
 		s.ordered = append(s.ordered, r)
 		s.named[r.name] = r

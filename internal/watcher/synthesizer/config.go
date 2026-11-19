@@ -148,6 +148,9 @@ func (s *ConfigSynthesizer) synthesizeGeminiKeyEntries(ctx *SynthesisContext, en
 			"source":       fmt.Sprintf("config:%s[%s]", sourceName, token),
 			"config_index": strconv.Itoa(i),
 		}
+		if entry.Name != "" {
+			attrs[coreauth.AttributeConfigGroup] = entry.Name
+		}
 		if key != "" {
 			attrs["api_key"] = key
 		}
@@ -215,6 +218,9 @@ func (s *ConfigSynthesizer) synthesizeClaudeKeys(ctx *SynthesisContext) []*corea
 		attrs := map[string]string{
 			"source":       fmt.Sprintf("config:claude[%s]", token),
 			"config_index": strconv.Itoa(i),
+		}
+		if ck.Name != "" {
+			attrs[coreauth.AttributeConfigGroup] = ck.Name
 		}
 		if key != "" {
 			attrs["api_key"] = key
@@ -305,6 +311,9 @@ func (s *ConfigSynthesizer) synthesizeCodexStyleKeys(ctx *SynthesisContext, entr
 		attrs := map[string]string{
 			"source":       fmt.Sprintf("config:%s[%s]", provider, token),
 			"config_index": strconv.Itoa(i),
+		}
+		if entry.Name != "" {
+			attrs[coreauth.AttributeConfigGroup] = entry.Name
 		}
 		if key != "" {
 			attrs["api_key"] = key
@@ -398,6 +407,9 @@ func (s *ConfigSynthesizer) synthesizeOpenAICompat(ctx *SynthesisContext) []*cor
 				"provider_key": internalProviderKey,
 				"config_index": strconv.Itoa(i),
 			}
+			if compat.Name != "" {
+				attrs[coreauth.AttributeConfigGroup] = compat.Name
+			}
 			metadata := map[string]any{}
 			if disableCooling != nil {
 				metadata["disable_cooling"] = *disableCooling
@@ -449,6 +461,9 @@ func (s *ConfigSynthesizer) synthesizeOpenAICompat(ctx *SynthesisContext) []*cor
 				"compat_name":  compat.Name,
 				"provider_key": internalProviderKey,
 				"config_index": strconv.Itoa(i),
+			}
+			if compat.Name != "" {
+				attrs[coreauth.AttributeConfigGroup] = compat.Name
 			}
 			metadata := map[string]any{}
 			if disableCooling != nil {
@@ -510,6 +525,9 @@ func (s *ConfigSynthesizer) synthesizeVertexCompat(ctx *SynthesisContext) []*cor
 			"base_url":     base,
 			"provider_key": providerName,
 			"config_index": strconv.Itoa(i),
+		}
+		if compat.Name != "" {
+			attrs[coreauth.AttributeConfigGroup] = compat.Name
 		}
 		if compat.Priority != 0 {
 			attrs["priority"] = strconv.Itoa(compat.Priority)

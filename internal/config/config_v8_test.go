@@ -271,6 +271,8 @@ openai-compatibility:
 	}
 	// Scope metadata is intentionally added when fields move under oauth.providers.
 	after.OAuthOnlyFields = nil
+	before.CodexKey[0].Name = "codex-1"
+	before.CodexKey[1].Name = "codex-2"
 	if !reflect.DeepEqual(before, after) {
 		t.Fatal("migration changed effective config")
 	}
@@ -818,6 +820,8 @@ api-keys:
 	if err != nil {
 		t.Fatal(err)
 	}
+	before.CodexKey[0].Name = "codex-1"
+	before.CodexKey[1].Name = "codex-2"
 	if !reflect.DeepEqual(before, after) || len(after.CodexKey) != 2 || len(after.GeminiKey) != 2 {
 		t.Fatal("alias migration changed effective credentials")
 	}

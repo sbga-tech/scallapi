@@ -78,7 +78,7 @@ func TestEndpointRoutesWebsocketUpgrade(t *testing.T) {
 }
 
 func TestEndpointRoutesFilterAllModelCatalogs(t *testing.T) {
-	cfg := &config.Config{Routes: []config.RouteConfig{{Name: "selected", Path: "/selected", AuthFiles: []string{"selected.json"}}}}
+	cfg := &config.Config{Routes: []config.RouteConfig{{Name: "selected", Path: "/selected", Credentials: []string{"selected.json"}}}}
 	cfg.APIKeys = []string{"test-key"}
 	server := newTestServerWithConfig(t, cfg)
 	reg := registry.GetGlobalRegistry()
