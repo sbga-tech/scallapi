@@ -11,35 +11,46 @@ import (
 	"sync"
 	"time"
 
-	"github.com/MoeForge/moego/json"
 	log "github.com/sirupsen/logrus"
 )
 
 const embeddedCatalogSource = "embed"
 
+const maxGeneralCatalogSize = 64 << 20
+
 // catalogUpdater serializes source changes with publication, not network I/O.
 // Cancellation saves work; the generation check also protects against readers
 // that finish after cancellation (including local file reads).
 type catalogUpdater struct {
-	mu              sync.Mutex
-	source          string
-	generation      uint64
-	requestSeq      uint64
-	publishedSeq    uint64
-	cancel          context.CancelFunc
-	ctx             context.Context
-	parentDone      <-chan struct{}
-	fetch           func(context.Context, string) ([]byte, error)
-	fetchWithSource func(context.Context, string) ([]byte, string, error)
-	publish         func([]byte) ([]string, error)
+	mu               sync.Mutex
+	source           string
+	generation       uint64
+	requestSeq       uint64
+	publishedSeq     uint64
+	cancel           context.CancelFunc
+	ctx              context.Context
+	parentDone       <-chan struct{}
+	fetch            func(context.Context, string) ([]byte, error)
+	fetchWithSource  func(context.Context, string) ([]byte, string, error)
+	publish          func([]byte) ([]string, error)
+	fetchConditional func(context.Context, string, map[string]string) ([]byte, string, string, error)
+	etags            map[string]string
+	publishedSource  string
 }
 
-func (u *catalogUpdater) fetchCatalog(ctx context.Context, source string) ([]byte, string, error) {
-	if u.fetchWithSource != nil {
-		return u.fetchWithSource(ctx, source)
+func (u *catalogUpdater) fetchCatalog(ctx context.Context, source string) ([]byte, string, string, error) {
+	if u.fetchConditional != nil {
+		u.mu.Lock()
+		etags := map[string]string{u.publishedSource: u.etags[u.publishedSource]}
+		u.mu.Unlock()
+		return u.fetchConditional(ctx, source, etags)
 	}
-	data, err := u.fetch(ctx, source)
-	return data, source, err
+	if u.fetchWithSource != nil {
+		data, resolved, errFetch := u.fetchWithSource(ctx, source)
+		return data, resolved, "", errFetch
+	}
+	data, errFetch := u.fetch(ctx, source)
+	return data, source, "", errFetch
 }
 
 func (u *catalogUpdater) configure(ctx context.Context, source string) {
@@ -105,7 +116,7 @@ func (u *catalogUpdater) refresh(ctx context.Context, source string, generation 
 	seq := u.requestSeq
 	u.mu.Unlock()
 
-	data, _, errFetch := u.fetchCatalog(ctx, source)
+	data, resolvedSource, etag, errFetch := u.fetchCatalog(ctx, source)
 	if errFetch != nil {
 		if ctx.Err() == nil {
 			log.Warn("model catalog refresh failed; keeping last valid catalog")
@@ -117,13 +128,19 @@ func (u *catalogUpdater) refresh(ctx context.Context, source string, generation 
 		u.mu.Unlock()
 		return
 	}
+	if data == nil {
+		u.publishedSeq = seq
+		u.mu.Unlock()
+		return
+	}
 	changed, errPublish := u.publish(data)
 	if errPublish == nil {
 		u.publishedSeq = seq
+		u.rememberETag(resolvedSource, etag)
 	}
 	u.mu.Unlock()
 	if errPublish != nil {
-		log.Warn("model catalog rejected; keeping last valid catalog")
+		log.WithError(errPublish).Warn("model catalog rejected; keeping last valid catalog")
 		return
 	}
 	notifyModelRefresh(changed)
@@ -181,7 +198,7 @@ func (u *catalogUpdater) refreshOnDemand(ctx context.Context, fallbackSource str
 		}()
 	}
 
-	data, resolvedSource, errFetch := u.fetchCatalog(fetchCtx, source)
+	data, resolvedSource, etag, errFetch := u.fetchCatalog(fetchCtx, source)
 	if resolvedSource != "" {
 		displaySource = resolvedSource
 	}
@@ -218,13 +235,19 @@ func (u *catalogUpdater) refreshOnDemand(ctx context.Context, fallbackSource str
 			Refreshed: true,
 		}, nil
 	}
+	if data == nil {
+		u.publishedSeq = seq
+		u.mu.Unlock()
+		return CatalogSourceStatus{Source: displaySource, Refreshed: true}, nil
+	}
 	changed, errPublish := u.publish(data)
 	if errPublish == nil {
 		u.publishedSeq = seq
+		u.rememberETag(resolvedSource, etag)
 	}
 	u.mu.Unlock()
 	if errPublish != nil {
-		log.Warn("model catalog rejected; keeping last valid catalog")
+		log.WithError(errPublish).Warn("model catalog rejected; keeping last valid catalog")
 		return CatalogSourceStatus{
 			Source: displaySource,
 			Error:  errPublish.Error(),
@@ -238,29 +261,55 @@ func (u *catalogUpdater) refreshOnDemand(ctx context.Context, fallbackSource str
 	}, nil
 }
 
+// rememberETag runs under u.mu, only after successful publication. A rejected
+// response must remain fetchable, and switching sources must not reuse a 304
+// against a different catalog currently in memory.
+func (u *catalogUpdater) rememberETag(source, etag string) {
+	if u.etags == nil {
+		u.etags = make(map[string]string)
+	}
+	u.etags[source] = etag
+	u.publishedSource = source
+}
+
 func readCatalogSource(ctx context.Context, source string) ([]byte, error) {
+	data, _, errRead := readCatalogSourceWithETag(ctx, source, "", maxCodexClientModelsSize)
+	return data, errRead
+}
+
+func readCatalogSourceWithETag(ctx context.Context, source, etag string, maxSize int) ([]byte, string, error) {
 	var reader io.ReadCloser
 	if filepath.IsAbs(source) {
 		file, errOpen := os.Open(source)
 		if errOpen != nil {
-			return nil, errOpen
+			return nil, "", errOpen
 		}
 		reader = file
 	} else {
 		req, errRequest := http.NewRequestWithContext(ctx, http.MethodGet, source, nil)
 		if errRequest != nil {
-			return nil, errRequest
+			return nil, "", errRequest
+		}
+		if etag != "" {
+			req.Header.Set("If-None-Match", etag)
 		}
 		resp, errDo := http.DefaultClient.Do(req)
 		if errDo != nil {
-			return nil, errDo
+			return nil, "", errDo
 		}
 		reader = resp.Body
+		if resp.StatusCode == http.StatusNotModified && etag != "" {
+			if errClose := reader.Close(); errClose != nil {
+				log.Debug("catalog response close failed")
+			}
+			return nil, etag, nil
+		}
+		etag = resp.Header.Get("ETag")
 		if resp.StatusCode != http.StatusOK {
 			if errClose := reader.Close(); errClose != nil {
 				log.Debug("catalog response close failed")
 			}
-			return nil, fmt.Errorf("catalog HTTP status %d", resp.StatusCode)
+			return nil, "", fmt.Errorf("catalog HTTP status %d", resp.StatusCode)
 		}
 	}
 	defer func() {
@@ -268,14 +317,34 @@ func readCatalogSource(ctx context.Context, source string) ([]byte, error) {
 			log.Debug("catalog reader close failed")
 		}
 	}()
-	data, errRead := io.ReadAll(io.LimitReader(reader, maxCodexClientModelsSize+1))
+	data, errRead := io.ReadAll(io.LimitReader(reader, int64(maxSize)+1))
 	if errRead != nil {
-		return nil, errRead
+		return nil, "", errRead
 	}
-	if len(data) > maxCodexClientModelsSize {
-		return nil, fmt.Errorf("catalog exceeds size limit")
+	if len(data) > maxSize {
+		return nil, "", fmt.Errorf("catalog exceeds size limit")
 	}
-	return data, nil
+	return data, etag, nil
+}
+
+func fetchGeneralCatalog(ctx context.Context, source string, etags map[string]string) ([]byte, string, string, error) {
+	if source == embeddedCatalogSource {
+		return embeddedModelsJSON, source, "", nil
+	}
+	sources := modelsURLs
+	if source != "" {
+		sources = []string{source}
+	}
+	for _, candidate := range sources {
+		data, etag, errRead := readCatalogSourceWithETag(ctx, candidate, etags[candidate], maxGeneralCatalogSize)
+		if errRead == nil {
+			return data, candidate, etag, nil
+		}
+		if ctx.Err() != nil {
+			break
+		}
+	}
+	return nil, source, "", fmt.Errorf("no valid model catalog source")
 }
 
 func catalogFetcherWithSource(embedded []byte, urls []string, validate func([]byte) error) func(context.Context, string) ([]byte, string, error) {
@@ -313,28 +382,27 @@ func catalogFetcher(embedded []byte, urls []string, validate func([]byte) error)
 }
 
 func validateCatalogBytes(data []byte) error {
-	var parsed staticModelsJSON
-	if errUnmarshal := json.Unmarshal(data, &parsed); errUnmarshal != nil {
-		return errUnmarshal
-	}
-	return validateModelsCatalog(&parsed)
+	_, _, errDecode := decodeGeneralCatalog(data)
+	return errDecode
 }
 
 func publishCatalogBytes(data []byte) ([]string, error) {
-	var parsed staticModelsJSON
-	if errUnmarshal := json.Unmarshal(data, &parsed); errUnmarshal != nil {
-		return nil, errUnmarshal
-	}
-	if errValidate := validateModelsCatalog(&parsed); errValidate != nil {
-		return nil, errValidate
+	parsed, converted, errDecode := decodeGeneralCatalog(data)
+	if errDecode != nil {
+		return nil, errDecode
 	}
 	old := getModels()
+	if converted {
+		if errGuard := guardModelsDevCatalog(old, parsed); errGuard != nil {
+			return nil, errGuard
+		}
+	}
 	if len(parsed.Meta) == 0 && old != nil {
 		parsed.Meta = old.Meta
 	}
-	changed := detectChangedProviders(old, &parsed)
+	changed := detectChangedProviders(old, parsed)
 	modelsCatalogStore.mu.Lock()
-	modelsCatalogStore.data = &parsed
+	modelsCatalogStore.data = parsed
 	modelsCatalogStore.mu.Unlock()
 	return changed, nil
 }
@@ -350,8 +418,8 @@ func dynamicCatalogFetcherWithSource(embedded []byte, urls *[]string, validate f
 }
 
 var generalCatalogUpdater = &catalogUpdater{
-	fetchWithSource: dynamicCatalogFetcherWithSource(embeddedModelsJSON, &modelsURLs, validateCatalogBytes),
-	publish:         publishCatalogBytes,
+	fetchConditional: fetchGeneralCatalog,
+	publish:          publishCatalogBytes,
 }
 var codexCatalogUpdater = &catalogUpdater{
 	fetchWithSource: dynamicCatalogFetcherWithSource(embeddedCodexClientModelsJSON, &codexClientModelsURLs, ValidateCodexClientModelsJSON),

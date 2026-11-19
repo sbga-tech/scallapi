@@ -11,9 +11,12 @@ config-version: 8
 
 # Optional model catalog sources: http(s) URLs or absolute local file paths.
 # Each explicit source overrides --local-model; otherwise --local-model uses
-# embedded catalogs, and normal mode uses the official remote sources.
-# Failed refreshes retain the last valid catalog; custom sources never fall back
-# to official URLs. Files and URLs are refreshed every 3 hours and on source changes.
+# embedded catalogs. In normal mode the general catalog comes from
+# https://models.dev/api.json (conditional GET with ETag), converted with the
+# embedded overlay internal/registry/models/modelsdev_overlay.yaml.
+# General sources accept CPA or models.dev JSON; Codex and Devin catalogs are unchanged.
+# Failed or rejected refreshes retain the last valid catalog; custom sources never
+# fall back to other URLs. Sources are refreshed every 3 hours and on source changes.
 # Home mode never loads the general catalog, even when explicitly configured.
 models:
   catalog: ""

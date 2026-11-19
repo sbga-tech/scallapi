@@ -1,0 +1,111 @@
+# models.dev describes public APIs, not subscription/transport capabilities.
+# Field paths below use JSON names. Extras reference the CI-maintained offline
+# catalog, and are used only when the ID is absent (never when deprecated).
+claude:
+  providers: [anthropic]
+  type: claude
+  owned-by: anthropic
+  include: '^claude-'
+  overrides:
+    - pattern: '^claude-(.*-4-[156]|3-7-sonnet)'
+      fields: {thinking.min: 1024, thinking.max: 128000}
+    - pattern: '^claude-((opus|sonnet|haiku|fable)-5($|-)|opus-4-[78])'
+      fields: {thinking.dynamic_allowed: true}
+    - pattern: '^claude-(haiku-4-5|sonnet-4-[56]|opus-4-[5678]|opus-5$|sonnet-5-5)'
+      fields: {thinking.zero_allowed: true}
+    - pattern: '^claude-sonnet-5-5$'
+      fields: {thinking.disable_type: between_tools}
+  extra-embedded: [claude-opus-4-1-20250805, claude-opus-4-20250514, claude-sonnet-4-20250514, claude-3-7-sonnet-20250219, claude-3-5-haiku-20241022]
+
+gemini: &gemini
+  providers: [google]
+  type: gemini
+  owned-by: google
+  include: '^gemini-'
+  # These endpoints are not served by the content-generation executor.
+  exclude: '(embedding|tts|live|computer-use|customtools)'
+  overrides:
+    - pattern: '^gemini-(2\.5-(pro$|flash(-lite)?$)|3|4|pro-latest|flash.*latest|omni)'
+      fields: {thinking.dynamic_allowed: true}
+    - pattern: '^gemini-(3|4-(argon|carbon)|omni)'
+      fields: {thinking.min: 128, thinking.max: 32768}
+    - pattern: '^gemini-3-pro(-image)?(-preview)?$'
+      fields: {thinking.levels: [low, high]}
+    - pattern: '^gemini-(3\.8|4-(argon|carbon))'
+      fields: {thinking.max: 65535}
+    - pattern: '^gemini-4-hydrogen$'
+      fields: {thinking.dynamic_allowed: false}
+  extra-embedded: [gemini-3-pro-preview, gemini-3.1-flash-image-preview, gemini-3-pro-image-preview, gemini-omni-1.2-flash]
+
+vertex:
+  <<: *gemini
+  providers: [google-vertex]
+  include: '^(gemini-|imagen-)'
+  extra-embedded: [gemini-3-pro, gemini-3-flash, gemini-3.1-pro, imagen-4.0-generate-001, imagen-4.0-ultra-generate-001, imagen-3.0-generate-002, imagen-3.0-fast-generate-001, imagen-4.0-fast-generate-001, gemini-omni-1.2-flash]
+
+aistudio:
+  <<: *gemini
+  extra-embedded: [gemini-3-pro-preview, gemini-omni-1.2-flash]
+
+# The CLI and Antigravity lists contain transport-specific aliases/capabilities.
+gemini-cli:
+  source: embedded
+antigravity:
+  source: embedded
+# Devin remains on its independent updater.
+devin:
+  source: embedded
+
+codex-plus: &codex
+  providers: [openai]
+  type: openai
+  owned-by: openai
+  include: '^(gpt-[0-9]+(\.[0-9]+)?-(astra|sol|terra|luna|chat-thinking|cyber)|codex-auto-review)$'
+  caps: {context_length: 272000}
+  overrides:
+    - pattern: '^gpt-'
+      fields:
+        thinking.levels: [low, medium, high, xhigh, max]
+        supportedInputModalities: [text, image]
+  extra-embedded: [gpt-6-chat-thinking, codex-auto-review]
+
+codex-pro:
+  <<: *codex
+codex-free:
+  <<: *codex
+  allowlist: [gpt-6-chat-thinking, gpt-6-luna, gpt-6.1-terra, gpt-5.6-terra, gpt-5.6-luna, codex-auto-review]
+codex-team:
+  <<: *codex
+  allowlist: [gpt-6.2-astra, gpt-6.2-sol, gpt-6-astra, gpt-6-sol, gpt-6.1-sol, gpt-6.1-terra, gpt-6-luna, gpt-6-chat-thinking, gpt-5.6-sol, gpt-5.6-terra, gpt-5.6-luna, codex-auto-review]
+
+kimi:
+  providers: [moonshotai]
+  type: kimi
+  owned-by: moonshot
+  include: '^kimi-'
+  overrides:
+    - pattern: '^kimi-k2\.[67]'
+      fields: {thinking.levels: [low, high]}
+    - pattern: '^kimi-k3'
+      fields: {thinking.zero_allowed: true}
+  extra-embedded: [kimi-k2, kimi-k2-thinking, kimi-k2.5, kimi-k2.8, kimi-k2.8-code, kimi-k3-256k]
+
+xai:
+  providers: [xai]
+  type: xai
+  owned-by: xai
+  include: '^grok-'
+  overrides:
+    - pattern: '^grok-4\.3$'
+      fields: {thinking.zero_allowed: true}
+  extra-embedded: [grok-4.7-build-fast, grok-3-mini, grok-3-mini-fast, grok-composer-2.5-fast, grok-imagine-image-2.0, grok-imagine-image-quality]
+
+meta:
+  providers: [meta]
+  type: meta
+  owned-by: meta
+  include: '^muse-'
+  overrides:
+    - pattern: '^muse-(ember|wonder|spark-1\.3)'
+      fields: {thinking.levels: [minimal, low, medium, high, xhigh, max]}
+  extra-embedded: [muse-wonder-1.0-contributor, muse-wonder-full-1.0, muse-wonder-full-1.0-contributor]
