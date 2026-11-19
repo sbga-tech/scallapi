@@ -14,7 +14,7 @@ func TestApplyPayloadConfigWithRoot_DisableImageGeneration_RemovesToolsEntry(t *
 	}
 	payload := []byte(`{"tools":[{"type":"image_generation","output_format":"png"},{"type":"function","name":"f1"}]}`)
 
-	out := ApplyPayloadConfigWithRoot(cfg, "gpt-5.4", "openai-response", "", payload, nil, "", "")
+	out := ApplyPayloadConfigWithRoot(cfg, "gpt-5.4", "openai-response", "", payload, nil, "", "", "")
 
 	tools := ojson.GetBytes(out, "tools")
 	if !tools.Exists() || !tools.IsArray() {
@@ -35,7 +35,7 @@ func TestApplyPayloadConfigWithRoot_DisableImageGeneration_RemovesToolsEntryWith
 	}
 	payload := []byte(`{"request":{"tools":[{"type":"image_generation"},{"type":"web_search"}]}}`)
 
-	out := ApplyPayloadConfigWithRoot(cfg, "gpt-5.4", "antigravity", "request", payload, nil, "", "")
+	out := ApplyPayloadConfigWithRoot(cfg, "gpt-5.4", "antigravity", "request", payload, nil, "", "", "")
 
 	tools := ojson.GetBytes(out, "request.tools")
 	if !tools.Exists() || !tools.IsArray() {
@@ -56,7 +56,7 @@ func TestApplyPayloadConfigWithRoot_DisableImageGeneration_RemovesToolChoiceByTy
 	}
 	payload := []byte(`{"tools":[{"type":"image_generation"},{"type":"function","name":"f1"}],"tool_choice":{"type":"image_generation"}}`)
 
-	out := ApplyPayloadConfigWithRoot(cfg, "gpt-5.4", "openai-response", "", payload, nil, "", "")
+	out := ApplyPayloadConfigWithRoot(cfg, "gpt-5.4", "openai-response", "", payload, nil, "", "", "")
 
 	if ojson.GetBytes(out, "tool_choice").Exists() {
 		t.Fatalf("expected tool_choice to be removed")
@@ -69,7 +69,7 @@ func TestApplyPayloadConfigWithRoot_DisableImageGeneration_RemovesToolChoiceByNa
 	}
 	payload := []byte(`{"request":{"tools":[{"type":"image_generation"},{"type":"web_search"}],"tool_choice":{"type":"tool","name":"image_generation"}}}`)
 
-	out := ApplyPayloadConfigWithRoot(cfg, "gpt-5.4", "antigravity", "request", payload, nil, "", "")
+	out := ApplyPayloadConfigWithRoot(cfg, "gpt-5.4", "antigravity", "request", payload, nil, "", "", "")
 
 	if ojson.GetBytes(out, "request.tool_choice").Exists() {
 		t.Fatalf("expected request.tool_choice to be removed")
@@ -82,7 +82,7 @@ func TestApplyPayloadConfigWithRoot_DisableImageGenerationChat_KeepsImageGenerat
 	}
 	payload := []byte(`{"tools":[{"type":"image_generation"},{"type":"function","name":"f1"}],"tool_choice":{"type":"image_generation"}}`)
 
-	out := ApplyPayloadConfigWithRoot(cfg, "gpt-5.4", "openai-response", "", payload, nil, "", "/v1/images/generations")
+	out := ApplyPayloadConfigWithRoot(cfg, "gpt-5.4", "openai-response", "", payload, nil, "", "/v1/images/generations", "")
 
 	tools := ojson.GetBytes(out, "tools")
 	if !tools.Exists() || !tools.IsArray() {
@@ -106,7 +106,7 @@ func TestApplyPayloadConfigWithRoot_DisableImageGenerationPassthrough_KeepsPaylo
 	// Passthrough must never inject or strip image_generation. The payload is forwarded as-is on
 	// non-images endpoints, and /v1/images/* endpoints behave like "chat" (also no removal).
 	for _, requestPath := range []string{"", "/v1/responses", "/v1/images/generations"} {
-		out := ApplyPayloadConfigWithRoot(cfg, "gpt-5.4", "openai-response", "", payload, nil, "", requestPath)
+		out := ApplyPayloadConfigWithRoot(cfg, "gpt-5.4", "openai-response", "", payload, nil, "", requestPath, "")
 
 		tools := ojson.GetBytes(out, "tools")
 		if !tools.Exists() || !tools.IsArray() {
@@ -143,7 +143,7 @@ func TestApplyPayloadConfigWithRoot_DisableImageGeneration_PayloadOverrideCanRes
 	}
 	payload := []byte(`{"tools":[{"type":"image_generation"},{"type":"function","name":"f1"}],"tool_choice":{"type":"image_generation"}}`)
 
-	out := ApplyPayloadConfigWithRoot(cfg, "gpt-5.4", "openai-response", "", payload, nil, "", "")
+	out := ApplyPayloadConfigWithRoot(cfg, "gpt-5.4", "openai-response", "", payload, nil, "", "", "")
 
 	tools := ojson.GetBytes(out, "tools")
 	if !tools.Exists() || !tools.IsArray() {
@@ -186,13 +186,13 @@ func TestApplyPayloadConfigWithRequest_HeaderGateRequiresWildcardMatch(t *testin
 	headers := http.Header{}
 	headers.Set("X-Client-Tier", "tenant-alpha-region-us")
 
-	out := ApplyPayloadConfigWithRequest(cfg, "gpt-5.4", "openai", "responses", "", payload, nil, "", "", headers)
+	out := ApplyPayloadConfigWithRequest(cfg, "gpt-5.4", "openai", "responses", "", payload, nil, "", "", "", headers)
 	if !ojson.GetBytes(out, "metadata.enabled").Bool() {
 		t.Fatalf("expected header-matched payload rule to apply, payload=%s", string(out))
 	}
 
 	headers.Set("X-Client-Tier", "tenant-alpha")
-	out = ApplyPayloadConfigWithRequest(cfg, "gpt-5.4", "openai", "responses", "", payload, nil, "", "", headers)
+	out = ApplyPayloadConfigWithRequest(cfg, "gpt-5.4", "openai", "responses", "", payload, nil, "", "", "", headers)
 	if ojson.GetBytes(out, "metadata.enabled").Exists() {
 		t.Fatalf("expected header-mismatched payload rule to be skipped, payload=%s", string(out))
 	}
@@ -223,12 +223,12 @@ func TestApplyPayloadConfigWithRequest_FromProtocolGateUsesSourceProtocol(t *tes
 	}
 	payload := []byte(`{"model":"gpt-5.4"}`)
 
-	out := ApplyPayloadConfigWithRequest(cfg, "gpt-5.4", "openai", "openai-response", "", payload, nil, "", "", nil)
+	out := ApplyPayloadConfigWithRequest(cfg, "gpt-5.4", "openai", "openai-response", "", payload, nil, "", "", "", nil)
 	if got := ojson.GetBytes(out, "metadata.source").String(); got != "responses" {
 		t.Fatalf("metadata.source = %q, want responses; payload=%s", got, string(out))
 	}
 
-	out = ApplyPayloadConfigWithRequest(cfg, "gpt-5.4", "openai", "openai", "", payload, nil, "", "", nil)
+	out = ApplyPayloadConfigWithRequest(cfg, "gpt-5.4", "openai", "openai", "", payload, nil, "", "", "", nil)
 	if got := ojson.GetBytes(out, "metadata.source").String(); got != "openai" {
 		t.Fatalf("metadata.source = %q, want openai; payload=%s", got, string(out))
 	}
@@ -267,7 +267,7 @@ func TestApplyPayloadConfigWithRequest_PayloadConditionsNarrowRule(t *testing.T)
 	}
 	payload := []byte(`{"model":"gpt-5.4","metadata":{"client":"codex","mode":"prod","null_value":null},"tools":[{"type":"function"},{"type":"web_search","enabled":true}]}`)
 
-	out := ApplyPayloadConfigWithRequest(cfg, "gpt-5.4", "openai", "responses", "", payload, nil, "", "", nil)
+	out := ApplyPayloadConfigWithRequest(cfg, "gpt-5.4", "openai", "responses", "", payload, nil, "", "", "", nil)
 	if !ojson.GetBytes(out, "metadata.applied").Bool() {
 		t.Fatalf("expected payload condition-matched rule to apply, payload=%s", string(out))
 	}
@@ -331,7 +331,7 @@ func TestApplyPayloadConfigWithRequest_PayloadConditionsSkipRule(t *testing.T) {
 				},
 			}
 
-			out := ApplyPayloadConfigWithRequest(cfg, "gpt-5.4", "openai", "responses", "", payload, nil, "", "", nil)
+			out := ApplyPayloadConfigWithRequest(cfg, "gpt-5.4", "openai", "responses", "", payload, nil, "", "", "", nil)
 			if ojson.GetBytes(out, "metadata.applied").Exists() {
 				t.Fatalf("expected payload condition-mismatched rule to be skipped, payload=%s", string(out))
 			}

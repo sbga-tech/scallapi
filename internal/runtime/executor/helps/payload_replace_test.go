@@ -36,7 +36,7 @@ func TestPayloadReplaceUserText(t *testing.T) {
 				Models: []config.PayloadModelRule{{Name: "*"}}, Target: config.PayloadReplaceTarget{Role: "user", Positions: tt.positions, All: tt.all},
 				Replacements: []config.PayloadReplacement{{"you are hero": "you are fool"}},
 			}}}}
-			out := ApplyPayloadConfigWithRoot(cfg, "model", tt.protocol, tt.root, []byte(tt.input), nil, "", "")
+			out := ApplyPayloadConfigWithRoot(cfg, "model", tt.protocol, tt.root, []byte(tt.input), nil, "", "", "")
 			for path, want := range tt.want {
 				if got := ojson.GetBytes(out, path).String(); got != want {
 					t.Errorf("%s = %q, want %q; body: %s", path, got, want, out)
@@ -66,7 +66,7 @@ func TestPayloadReplaceNoOp(t *testing.T) {
 	} {
 		cfg := &config.Config{Payload: config.PayloadConfig{Replace: []config.PayloadReplaceRule{{Models: []config.PayloadModelRule{{Name: "*"}}, Target: config.PayloadReplaceTarget{Role: "user", All: true}, Replacements: []config.PayloadReplacement{{"you are hero": "you are fool"}}}}}}
 		body := []byte(input)
-		out := ApplyPayloadConfigWithRoot(cfg, "model", "openai", "", body, nil, "", "")
+		out := ApplyPayloadConfigWithRoot(cfg, "model", "openai", "", body, nil, "", "", "")
 		if !bytes.Equal(out, body) || &out[0] != &body[0] {
 			t.Fatalf("no-op changed input: %s -> %s", body, out)
 		}
@@ -87,7 +87,7 @@ func TestPayloadReplaceOrderingAndPositions(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &config.Config{Payload: config.PayloadConfig{Replace: []config.PayloadReplaceRule{{Models: []config.PayloadModelRule{{Name: "*"}}, Target: config.PayloadReplaceTarget{Role: "user", Positions: []int{2, 1, 1, 1000000}}, Replacements: tt.replacements}}}}
-			out := ApplyPayloadConfigWithRoot(cfg, "model", "openai", "", []byte(`{"messages":[{"role":"user","content":"hero hero"}]}`), nil, "", "")
+			out := ApplyPayloadConfigWithRoot(cfg, "model", "openai", "", []byte(`{"messages":[{"role":"user","content":"hero hero"}]}`), nil, "", "", "")
 			if got := ojson.GetBytes(out, "messages.0.content").String(); got != tt.want {
 				t.Fatalf("got %q, want %q", got, tt.want)
 			}
@@ -111,7 +111,7 @@ func TestPayloadReplaceMatchingAndStageOrder(t *testing.T) {
 		Replace:  []config.PayloadReplaceRule{rule, {Models: []config.PayloadModelRule{{Name: "*", Match: []map[string]any{{"messages.0.content": "hero!"}}}}, Target: rule.Target, Replacements: []config.PayloadReplacement{{"!": "!!"}}}},
 		Filter:   []config.PayloadFilterRule{{Models: []config.PayloadModelRule{{Name: "*", Match: []map[string]any{{"messages.0.content": "hero!!"}}}}, Params: []string{"stage"}}},
 	}}
-	out, touched := ApplyPayloadConfigWithTrackedPaths(cfg, "upstream", "claude", "openai-response", "", []byte(`{"messages":[{"role":"user","content":"original"}]}`), nil, "alias-model", "", http.Header{"X-Tier": {"prod-a"}}, "messages")
+	out, touched := ApplyPayloadConfigWithTrackedPaths(cfg, "upstream", "claude", "openai-response", "", []byte(`{"messages":[{"role":"user","content":"original"}]}`), nil, "alias-model", "", "", http.Header{"X-Tier": {"prod-a"}}, "messages")
 	if got := ojson.GetBytes(out, "messages.0.content").String(); got != "hero!!" || ojson.GetBytes(out, "stage").Exists() || !touched["messages"] {
 		t.Fatalf("unexpected stage order or tracking: %s, touched=%v", out, touched)
 	}
@@ -131,7 +131,7 @@ func TestPayloadReplaceMatchingAndStageOrder(t *testing.T) {
 				_ = doc.Set("messages", []any{map[string]any{"role": "user", "content": "hero"}})
 			}
 			body := doc.Bytes()
-			out := ApplyPayloadConfigWithRequest(&config.Config{Payload: config.PayloadConfig{Replace: []config.PayloadReplaceRule{rule}}}, tt.model, tt.protocol, tt.from, "", body, nil, "", "", http.Header{"X-Tier": {tt.header}})
+			out := ApplyPayloadConfigWithRequest(&config.Config{Payload: config.PayloadConfig{Replace: []config.PayloadReplaceRule{rule}}}, tt.model, tt.protocol, tt.from, "", body, nil, "", "", "", http.Header{"X-Tier": {tt.header}})
 			if !bytes.Equal(out, body) {
 				t.Fatalf("nonmatching rule modified body: %s", out)
 			}
@@ -241,7 +241,7 @@ line</debug> keep"}]}`,
 				Target:       config.PayloadReplaceTarget{Role: "user", Positions: tt.positions, All: tt.all},
 				Replacements: tt.replacements,
 			}}}}
-			out := ApplyPayloadConfigWithRoot(cfg, "model", tt.protocol, tt.root, []byte(tt.input), nil, "", "")
+			out := ApplyPayloadConfigWithRoot(cfg, "model", tt.protocol, tt.root, []byte(tt.input), nil, "", "", "")
 			for path, want := range tt.want {
 				if got := ojson.GetBytes(out, path).String(); got != want {
 					t.Errorf("%s = %q, want %q; body: %s", path, got, want, out)
@@ -262,7 +262,7 @@ line</debug> keep"}]}`,
 			Target:       config.PayloadReplaceTarget{Role: "user", All: true},
 			Replacements: replacements,
 		}}}}
-		out := ApplyPayloadConfigWithRoot(cfg, "model", "openai", "", body, nil, "", "")
+		out := ApplyPayloadConfigWithRoot(cfg, "model", "openai", "", body, nil, "", "", "")
 		if !bytes.Equal(out, body) || &out[0] != &body[0] {
 			t.Fatalf("expected unchanged slice for %v, got %s", replacements, out)
 		}

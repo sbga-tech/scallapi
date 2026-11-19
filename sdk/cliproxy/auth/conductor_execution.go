@@ -343,7 +343,7 @@ func (m *Manager) Execute(ctx context.Context, providers []string, req cliproxye
 		}
 		lastErr = errExec
 		if upstreamAttempted && m.isCodexAttemptFailure(errExec, roundAttempted) {
-			eligibility := authSelectionEligibilityForRequest(ctx, opts)
+			eligibility := authSelectionEligibilityForRequest(ctx, opts, m.endpointRoutes.Load())
 			pinnedAuthID := pinnedAuthIDFromMetadata(opts.Metadata)
 			if _, okContinuity := m.canRunCodexContinuity(ctx, normalized); okContinuity &&
 				isPositiveQuotaRejectionError(errExec) {
@@ -615,7 +615,7 @@ func (m *Manager) ExecuteStream(ctx context.Context, providers []string, req cli
 		terminalRoundRejectedByScheduler = hasRoundEndedBySchedulerReject(errStream)
 		lastErr = errStream
 		if upstreamAttempted && m.isCodexAttemptFailure(errStream, roundAttempted) {
-			eligibility := authSelectionEligibilityForRequest(ctx, opts)
+			eligibility := authSelectionEligibilityForRequest(ctx, opts, m.endpointRoutes.Load())
 			pinnedAuthID := pinnedAuthIDFromMetadata(opts.Metadata)
 			if _, okContinuity := m.canRunCodexContinuity(ctx, normalized); okContinuity &&
 				isPositiveQuotaRejectionError(errStream) {

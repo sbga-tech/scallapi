@@ -350,6 +350,7 @@ func (h *Handler) forwardWithCredential(
 }
 
 func (h *Handler) selectMetaAuthExcluding(ctx context.Context, opts coreexecutor.Options, tried map[string]struct{}) (*auth.Auth, error) {
+	opts.Metadata = coreexecutor.WithRouteMetadata(ctx, opts.Metadata)
 	models := metaCandidateModels(h.authManager)
 	if len(models) == 0 {
 		return nil, &auth.Error{

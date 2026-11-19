@@ -50,7 +50,7 @@ func TestPayloadReplaceInvalidRegexRuntimeIsolation(t *testing.T) {
 	}}}
 	before := cfg.CloneForRuntime()
 	body := []byte(`{"messages":[{"role":"user","content":"hero"},{"role":"user","content":[{"type":"text","text":"hero"},{"type":"text","text":"hero"}]}]}`)
-	out := ApplyPayloadConfigWithRoot(cfg, "model", "openai", "", body, nil, "", "")
+	out := ApplyPayloadConfigWithRoot(cfg, "model", "openai", "", body, nil, "", "", "")
 	for _, path := range []string{"messages.0.content", "messages.1.content.0.text", "messages.1.content.1.text"} {
 		if got := ojson.GetBytes(out, path).String(); got != "teammate" {
 			t.Errorf("%s = %q, want teammate; body: %s", path, got, out)

@@ -489,7 +489,7 @@ func (e *GeminiVertexExecutor) executeWithServiceAccount(ctx context.Context, au
 	}
 	_ = doc.Delete("session_id")
 
-	helps.ApplyPayloadConfigWithRequestDoc(e.cfg, baseModel, "gemini", opts.SourceFormat.String(), "", doc, originalTranslated, helps.PayloadRequestedModel(opts, req.Model), helps.PayloadRequestPath(opts), opts.Headers)
+	helps.ApplyPayloadConfigWithRequestDoc(e.cfg, baseModel, "gemini", opts.SourceFormat.String(), "", doc, originalTranslated, helps.PayloadRequestedModel(opts, req.Model), helps.PayloadRequestPath(opts), helps.PayloadRoute(opts), opts.Headers)
 	body = doc.Bytes()
 	reporter.SetTranslatedReasoningEffort(body, "gemini")
 	httpReq, errNewReq := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
@@ -674,7 +674,7 @@ func (e *GeminiVertexExecutor) executeWithAPIKey(ctx context.Context, auth *clip
 	}
 	_ = doc.Delete("session_id")
 
-	helps.ApplyPayloadConfigWithRequestDoc(e.cfg, baseModel, to.String(), from.String(), "", doc, originalTranslated, requestedModel, requestPath, opts.Headers)
+	helps.ApplyPayloadConfigWithRequestDoc(e.cfg, baseModel, to.String(), from.String(), "", doc, originalTranslated, requestedModel, requestPath, helps.PayloadRoute(opts), opts.Headers)
 	body = doc.Bytes()
 	reporter.SetTranslatedReasoningEffort(body, to.String())
 	httpReq, errNewReq := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
@@ -838,7 +838,7 @@ func (e *GeminiVertexExecutor) executeStreamWithServiceAccount(ctx context.Conte
 	}
 	_ = doc.Delete("session_id")
 
-	helps.ApplyPayloadConfigWithRequestDoc(e.cfg, baseModel, to.String(), from.String(), "", doc, originalTranslated, requestedModel, requestPath, opts.Headers)
+	helps.ApplyPayloadConfigWithRequestDoc(e.cfg, baseModel, to.String(), from.String(), "", doc, originalTranslated, requestedModel, requestPath, helps.PayloadRoute(opts), opts.Headers)
 	body = doc.Bytes()
 	reporter.SetTranslatedReasoningEffort(body, to.String())
 	httpReq, errNewReq := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
@@ -1203,7 +1203,7 @@ func (e *GeminiVertexExecutor) executeStreamWithAPIKey(ctx context.Context, auth
 	}
 	_ = doc.Delete("session_id")
 
-	helps.ApplyPayloadConfigWithRequestDoc(e.cfg, baseModel, to.String(), from.String(), "", doc, originalTranslated, requestedModel, requestPath, opts.Headers)
+	helps.ApplyPayloadConfigWithRequestDoc(e.cfg, baseModel, to.String(), from.String(), "", doc, originalTranslated, requestedModel, requestPath, helps.PayloadRoute(opts), opts.Headers)
 	body = doc.Bytes()
 	reporter.SetTranslatedReasoningEffort(body, to.String())
 	httpReq, errNewReq := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
@@ -1954,7 +1954,7 @@ func (e *GeminiVertexExecutor) executeInteractions(ctx context.Context, auth *cl
 
 	url := vertexInteractionsURL(baseURL, projectID, false)
 
-	helps.ApplyPayloadConfigWithRequestDoc(e.cfg, targetName, "interactions", fromProtocol, "", doc, originalTranslated, requestedModel, requestPath, opts.Headers)
+	helps.ApplyPayloadConfigWithRequestDoc(e.cfg, targetName, "interactions", fromProtocol, "", doc, originalTranslated, requestedModel, requestPath, helps.PayloadRoute(opts), opts.Headers)
 	body = doc.Bytes()
 	reporter.SetTranslatedRequestMetadata(body, "interactions")
 
@@ -2084,7 +2084,7 @@ func (e *GeminiVertexExecutor) executeInteractionsStream(ctx context.Context, au
 
 	url := vertexInteractionsURL(baseURL, projectID, true)
 
-	helps.ApplyPayloadConfigWithRequestDoc(e.cfg, targetName, "interactions", fromProtocol, "", doc, originalTranslated, requestedModel, requestPath, opts.Headers)
+	helps.ApplyPayloadConfigWithRequestDoc(e.cfg, targetName, "interactions", fromProtocol, "", doc, originalTranslated, requestedModel, requestPath, helps.PayloadRoute(opts), opts.Headers)
 	body = doc.Bytes()
 	reporter.SetTranslatedRequestMetadata(body, "interactions")
 

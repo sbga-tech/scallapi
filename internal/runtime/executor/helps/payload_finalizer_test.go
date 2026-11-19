@@ -113,7 +113,7 @@ func TestPayloadRulesMatchFinalBodyAndTrackPaths(t *testing.T) {
 		Filter: []config.PayloadFilterRule{{Models: []config.PayloadModelRule{{Name: "*", Match: []map[string]any{{"max_tokens": 300}}}}, Params: []string{"context_management", "messages.0"}}},
 	}}
 	original := []byte(`{"max_tokens":100,"messages":[{},{}]}`)
-	body, touched := ApplyPayloadConfigWithTrackedPaths(cfg, "model", "claude", "claude", "", []byte(`{"max_tokens":300,"context_management":{"builtin":true},"messages":[{},{},{}]}`), original, "model", "", nil, "diagnostics", "context_management")
+	body, touched := ApplyPayloadConfigWithTrackedPaths(cfg, "model", "claude", "claude", "", []byte(`{"max_tokens":300,"context_management":{"builtin":true},"messages":[{},{},{}]}`), original, "model", "", "", nil, "diagnostics", "context_management")
 	if ojson.GetBytes(body, "unexpected").Exists() || !ojson.GetBytes(body, "diagnostics.user").Bool() || ojson.GetBytes(body, "context_management").Exists() || ojson.GetBytes(body, "messages.#").Int() != 2 {
 		t.Fatalf("rules did not match final body: %s", body)
 	}
@@ -327,10 +327,10 @@ func TestApplyPayloadConfigDocSequentialDefaultObjectAndNestedField(t *testing.T
 		},
 	}
 	raw := []byte(`{"model":"gpt-5"}`)
-	want := ApplyPayloadConfigWithRoot(cfg, "gpt-5", "openai", "", raw, nil, "", "")
+	want := ApplyPayloadConfigWithRoot(cfg, "gpt-5", "openai", "", raw, nil, "", "", "")
 
 	doc := ojson.NewDoc(raw)
-	ApplyPayloadConfigWithRootDoc(cfg, "gpt-5", "openai", "", doc, nil, "", "")
+	ApplyPayloadConfigWithRootDoc(cfg, "gpt-5", "openai", "", doc, nil, "", "", "")
 	got := doc.Bytes()
 
 	if ojson.GetBytesNoCopy(got, "metadata.x").Int() != ojson.GetBytesNoCopy(want, "metadata.x").Int() {
@@ -358,9 +358,9 @@ func TestApplyPayloadConfigDocSequentialDefaultObjectAndNestedField(t *testing.T
 		},
 	}
 	arrRaw := []byte(`{"model":"gpt-5","items":[]}`)
-	arrWant := ApplyPayloadConfigWithRoot(arrCfg, "gpt-5", "openai", "", arrRaw, nil, "", "")
+	arrWant := ApplyPayloadConfigWithRoot(arrCfg, "gpt-5", "openai", "", arrRaw, nil, "", "", "")
 	arrDoc := ojson.NewDoc(arrRaw)
-	ApplyPayloadConfigWithRootDoc(arrCfg, "gpt-5", "openai", "", arrDoc, nil, "", "")
+	ApplyPayloadConfigWithRootDoc(arrCfg, "gpt-5", "openai", "", arrDoc, nil, "", "", "")
 	arrGot := arrDoc.Bytes()
 	if ojson.GetBytesNoCopy(arrGot, "items.0").Int() != 1 || ojson.GetBytesNoCopy(arrGot, "items.2").Int() != 2 || !bytes.Equal(arrGot, arrWant) {
 		t.Fatalf("sparse array default mismatch:\ngot  %s\nwant %s", arrGot, arrWant)
@@ -378,7 +378,7 @@ func TestApplyPayloadConfigDocSequentialDefaultObjectAndNestedField(t *testing.T
 	}
 	hugeArrRaw := []byte(`{"model":"gpt-5","items":[]}`)
 	hugeArrDoc := ojson.NewDoc(hugeArrRaw)
-	ApplyPayloadConfigWithRootDoc(hugeArrCfg, "gpt-5", "openai", "", hugeArrDoc, nil, "", "")
+	ApplyPayloadConfigWithRootDoc(hugeArrCfg, "gpt-5", "openai", "", hugeArrDoc, nil, "", "", "")
 	if got := string(hugeArrDoc.Bytes()); got != string(hugeArrRaw) {
 		t.Fatalf("huge index array default should be ignored without OOM: got %s, want %s", got, hugeArrRaw)
 	}

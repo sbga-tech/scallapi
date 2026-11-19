@@ -25,7 +25,7 @@ func issue7017WaitSetup(t *testing.T, auth *Auth, model string) (*Manager, authS
 	if _, errRegister := manager.Register(WithSkipPersist(context.Background()), auth); errRegister != nil {
 		t.Fatalf("Register returned error: %v", errRegister)
 	}
-	return manager, authSelectionEligibilityForRequest(context.Background(), cliproxyexecutor.Options{})
+	return manager, authSelectionEligibilityForRequest(context.Background(), cliproxyexecutor.Options{}, nil)
 }
 
 func TestIssue7017SiblingQuotaDoesNotBlockTransientZeroWait(t *testing.T) {

@@ -28,6 +28,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/managementasset"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/pluginhost"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/redisqueue"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/routes"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/wstunnel"
 	sdkaccess "github.com/router-for-me/CLIProxyAPI/v8/sdk/access"
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/api/handlers"
@@ -45,7 +46,8 @@ type Server struct {
 	engine *gin.Engine
 
 	// server is the underlying HTTP server.
-	server *http.Server
+	server         *http.Server
+	endpointRoutes routes.Store
 
 	// muxBaseListener is the shared TCP listener used to serve both HTTP and Redis protocol traffic.
 	listenerMu      sync.Mutex
@@ -241,6 +243,7 @@ func NewServer(cfg *config.Config, authManager *auth.Manager, accessManager *sdk
 	s.applyAccessConfig(nil, cfg)
 	if authManager != nil {
 		authManager.SetRetryConfig(cfg.RequestRetry, time.Duration(cfg.MaxRetryInterval)*time.Second, cfg.MaxRetryCredentials)
+		authManager.SetRoutes(cfg.Routes)
 	}
 	githubauth.SetToken(cfg.GitHubToken)
 	managementasset.SetCurrentConfig(cfg)
@@ -293,10 +296,11 @@ func NewServer(cfg *config.Config, authManager *auth.Manager, accessManager *sdk
 		s.enableKeepAlive(optionState.keepAliveTimeout, optionState.keepAliveOnTimeout)
 	}
 
+	s.endpointRoutes.Update(cfg.Routes)
 	// Create HTTP server
 	s.server = &http.Server{
 		Addr:              fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
-		Handler:           wrapUnconsumedRequestBodyHandler(engine),
+		Handler:           wrapUnconsumedRequestBodyHandler(s.endpointRoutes.Wrap(engine)),
 		ReadHeaderTimeout: muxSniffDeadline,
 	}
 

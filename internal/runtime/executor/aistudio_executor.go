@@ -776,7 +776,7 @@ func (e *AIStudioExecutor) translateRequest(ctx context.Context, req cliproxyexe
 		_ = doc.Delete("tools")
 		_ = doc.Delete("safetySettings")
 	}
-	helps.ApplyPayloadConfigWithRequestDoc(e.cfg, baseModel, to.String(), from.String(), "", doc, originalTranslated, requestedModel, requestPath, opts.Headers)
+	helps.ApplyPayloadConfigWithRequestDoc(e.cfg, baseModel, to.String(), from.String(), "", doc, originalTranslated, requestedModel, requestPath, helps.PayloadRoute(opts), opts.Headers)
 	payload = doc.Bytes()
 	return payload, translatedPayload{
 		payload:              payload,

@@ -20,6 +20,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/clienterror"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/logging"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/routes"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/api/handlers"
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
@@ -487,6 +488,7 @@ func mediaCredentialName(selected *auth.Auth, authIndex string) string {
 }
 
 func (h *Handler) selectOAuth(ctx context.Context, model string, opts coreexecutor.Options) (*auth.HomeDispatchSelection, *auth.Auth, error) {
+	opts.Metadata = coreexecutor.WithRouteMetadata(ctx, opts.Metadata)
 	var selection *auth.HomeDispatchSelection
 	var selected *auth.Auth
 	var errSelect error
@@ -841,4 +843,9 @@ func writeSelectionError(c *gin.Context, err error) {
 		c.Writer.Header().Add("Retry-After", value)
 	}
 	writeLiveError(c, status, err.Error())
+}
+
+func (h *Handler) routeAllowsAuth(ctx context.Context, selected *auth.Auth) bool {
+	route := routes.FromContext(ctx)
+	return route == nil || h.authManager.RouteAllowsAuth(route.Name(), selected)
 }

@@ -710,6 +710,8 @@ type PayloadModelRule struct {
 	Name string `yaml:"name" json:"name"`
 	// Protocol restricts the rule to a specific translator format (e.g., "gemini", "responses").
 	Protocol string `yaml:"protocol" json:"protocol"`
+	// Route restricts the rule to a named endpoint route.
+	Route string `yaml:"route" json:"route"`
 	// Headers restricts the rule to requests whose headers match all configured wildcard patterns.
 	Headers map[string]string `yaml:"headers" json:"headers"`
 	// FromProtocol restricts the rule to a specific source protocol (e.g., "gemini", "responses").

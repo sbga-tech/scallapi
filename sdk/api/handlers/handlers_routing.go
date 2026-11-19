@@ -125,7 +125,28 @@ func nativeInteractionsExecutionError() *interfaces.ErrorMessage {
 // providersForExecution resolves the providers and normalized model for a request. When a model
 // router selected a built-in provider, it skips model->provider resolution and uses the router's
 // provider (with an optional target model); otherwise it falls back to the registry-based path.
-func (h *BaseAPIHandler) providersForExecution(modelName, originalRequestedModel string, allowImageModel bool, routeDecision modelRouteDecision, execOptions modelExecutionOptions) ([]string, string, *interfaces.ErrorMessage) {
+func (h *BaseAPIHandler) providersForExecution(ctx context.Context, modelName, originalRequestedModel string, allowImageModel bool, routeDecision modelRouteDecision, execOptions modelExecutionOptions) (providers []string, normalizedModel string, errMsg *interfaces.ErrorMessage) {
+	defer func() {
+		if errMsg != nil {
+			return
+		}
+		route := requestRoute(ctx)
+		if route == nil || !route.RestrictsProviders() {
+			return
+		}
+		filtered := make([]string, 0, len(providers))
+		for _, provider := range providers {
+			if h.AuthManager.RouteAllowsProvider(route, provider) {
+				filtered = append(filtered, provider)
+			}
+		}
+		providers = filtered
+		if len(providers) == 0 {
+			doc := ojson.NewDocString(`{"error":{"message":"","type":"invalid_request_error","code":"model_not_available_on_route","param":"model"}}`)
+			_ = doc.Set("error.message", "model "+originalRequestedModel+" is not available on route "+route.Name())
+			errMsg = &interfaces.ErrorMessage{StatusCode: http.StatusBadRequest, Error: errors.New(doc.String())}
+		}
+	}()
 	forcedProvider := strings.ToLower(strings.TrimSpace(execOptions.ForcedProvider))
 	if forcedProvider != "" {
 		if routeDecision.ExecutorPluginID != "" {

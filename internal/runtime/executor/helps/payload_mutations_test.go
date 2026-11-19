@@ -119,7 +119,7 @@ func TestApplyPayloadConfigReusesCanonicalOverrides(t *testing.T) {
 		}},
 	}}
 	input := []byte(`{"model":"gpt-test","stream":true,"metadata":{"source":"executor"},"messages":[]}`)
-	output := ApplyPayloadConfigWithRoot(cfg, "gpt-test", "openai", "", input, nil, "", "")
+	output := ApplyPayloadConfigWithRoot(cfg, "gpt-test", "openai", "", input, nil, "", "", "")
 	if &output[0] != &input[0] {
 		t.Fatal("canonical payload overrides caused a payload copy")
 	}
@@ -212,7 +212,7 @@ func TestApplyPayloadConfigWithRequestTrackedReportsContextManagementTouches(t *
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := &config.Config{Payload: test.payloadConfig}
-			_, touched := ApplyPayloadConfigWithRequestTracked(cfg, "claude-opus-5", "claude", "claude", "", []byte(test.payload), test.original, "claude-opus-5", "", nil, "context_management")
+			_, touched := ApplyPayloadConfigWithRequestTracked(cfg, "claude-opus-5", "claude", "claude", "", []byte(test.payload), test.original, "claude-opus-5", "", "", nil, "context_management")
 			if touched != test.wantTouched {
 				t.Fatalf("context_management touched = %t, want %t", touched, test.wantTouched)
 			}
@@ -228,7 +228,7 @@ func TestApplyPayloadConfigProjectionOverrideWritesEveryMatch(t *testing.T) {
 		}},
 	}}
 	input := []byte(`{"items":[{"value":1},{"value":2}]}`)
-	output := ApplyPayloadConfigWithRoot(cfg, "gpt-test", "openai", "", input, nil, "", "")
+	output := ApplyPayloadConfigWithRoot(cfg, "gpt-test", "openai", "", input, nil, "", "", "")
 	for _, path := range []string{"items.0.value", "items.1.value"} {
 		if got := ojson.GetBytes(output, path).Raw; got != `[1,2]` {
 			t.Fatalf("%s = %s, want [1,2]", path, got)
@@ -244,7 +244,7 @@ func TestApplyPayloadConfigProjectionOverrideRawWritesEveryMatch(t *testing.T) {
 		}},
 	}}
 	input := []byte(`{"items":[{"value":1},{"value":2}]}`)
-	output := ApplyPayloadConfigWithRoot(cfg, "gpt-test", "openai", "", input, nil, "", "")
+	output := ApplyPayloadConfigWithRoot(cfg, "gpt-test", "openai", "", input, nil, "", "", "")
 	for _, path := range []string{"items.0.value", "items.1.value"} {
 		if got := ojson.GetBytes(output, path).Raw; got != `[1,2]` {
 			t.Fatalf("%s = %s, want [1,2]", path, got)
@@ -260,7 +260,7 @@ func TestApplyPayloadConfigNormalizesByteSliceOverride(t *testing.T) {
 		}},
 	}}
 	input := []byte(`{"value":"YWJj"}`)
-	output := ApplyPayloadConfigWithRoot(cfg, "gpt-test", "openai", "", input, nil, "", "")
+	output := ApplyPayloadConfigWithRoot(cfg, "gpt-test", "openai", "", input, nil, "", "", "")
 	value := ojson.GetBytes(output, "value")
 	if value.Type != ojson.String || value.String() != "abc" {
 		t.Fatalf("value = %s, want string abc", value.Raw)
@@ -368,7 +368,7 @@ func TestApplyPayloadConfig_CodexAdditionalToolsFilter(t *testing.T) {
 			]
 		}`)
 
-		output := ApplyPayloadConfigWithRoot(cfg, "gpt-5-codex", "codex", "", input, nil, "", "")
+		output := ApplyPayloadConfigWithRoot(cfg, "gpt-5-codex", "codex", "", input, nil, "", "", "")
 
 		var structured struct {
 			Input []struct {
@@ -420,7 +420,7 @@ func TestApplyPayloadConfig_CodexAdditionalToolsFilter(t *testing.T) {
 			]
 		}`)
 
-		output := ApplyPayloadConfigWithRoot(cfg, "gpt-5-codex", "codex", "", input, nil, "", "")
+		output := ApplyPayloadConfigWithRoot(cfg, "gpt-5-codex", "codex", "", input, nil, "", "", "")
 		if !bytes.Equal(output, input) {
 			t.Fatalf("expected payload to be untouched when rule does not match, got: %s", string(output))
 		}
@@ -461,7 +461,7 @@ func TestApplyPayloadConfig_CodexAdditionalToolsFilter(t *testing.T) {
 			]
 		}`)
 
-		output := ApplyPayloadConfigWithRoot(cfg, "gpt-5-codex", "codex", "", input, nil, "", "")
+		output := ApplyPayloadConfigWithRoot(cfg, "gpt-5-codex", "codex", "", input, nil, "", "", "")
 		if strings.Contains(string(output), "apply_patch") {
 			t.Fatalf("apply_patch remained after multi-element filter: %s", string(output))
 		}
@@ -494,7 +494,7 @@ func TestApplyPayloadConfig_CodexAdditionalToolsFilter(t *testing.T) {
 			]
 		}`)
 
-		output := ApplyPayloadConfigWithRoot(cfg, "gpt-5-codex", "codex", "", input, nil, "", "")
+		output := ApplyPayloadConfigWithRoot(cfg, "gpt-5-codex", "codex", "", input, nil, "", "", "")
 		if strings.Contains(string(output), "apply_patch") {
 			t.Fatalf("apply_patch remained after multi-match array filter: %s", string(output))
 		}

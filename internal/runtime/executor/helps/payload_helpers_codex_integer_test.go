@@ -25,7 +25,7 @@ func TestApplyPayloadConfigWithTrackedPathsForExecutorCodexIntegerNormalizationU
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, _ := ApplyPayloadConfigWithTrackedPathsForExecutor(nil, tt.executor, "model", tt.protocol, "", "", input, nil, "", "", headers)
+			got, _ := ApplyPayloadConfigWithTrackedPathsForExecutor(nil, tt.executor, "model", tt.protocol, "", "", input, nil, "", "", "", headers)
 			if typ := ojson.GetBytes(got, "tools.0.parameters.properties.yield_time_ms.type").String(); typ != tt.wantType {
 				t.Fatalf("yield_time_ms.type = %q, want %q; payload=%s", typ, tt.wantType, got)
 			}

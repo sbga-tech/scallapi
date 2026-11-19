@@ -7,6 +7,7 @@ import (
 	"maps"
 	"math/rand/v2"
 	"net/http"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/routes"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/thinking"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
@@ -87,6 +89,8 @@ type authSelectionEligibility struct {
 	requiredKind     string
 	credentialPolicy string
 	disallowFreeAuth bool
+	route            *routes.Route
+	routeSet         bool
 }
 
 func withRequiredAuthKind(ctx context.Context, requiredKind string) context.Context {
@@ -105,8 +109,14 @@ func credentialPolicyFromContext(ctx context.Context) string {
 	return policy
 }
 
-func authSelectionEligibilityForRequest(ctx context.Context, opts cliproxyexecutor.Options) authSelectionEligibility {
+func authSelectionEligibilityForRequest(ctx context.Context, opts cliproxyexecutor.Options, snapshot *routes.Snapshot) authSelectionEligibility {
 	eligibility := authSelectionEligibility{disallowFreeAuth: disallowFreeAuthFromMetadata(opts.Metadata)}
+	if name, ok := opts.Metadata[cliproxyexecutor.RouteMetadataKey]; ok {
+		eligibility.routeSet = true
+		if routeName, okName := name.(string); okName {
+			eligibility.route = snapshot.Named(routeName)
+		}
+	}
 	if ctx != nil {
 		eligibility.requiredKind, _ = ctx.Value(requiredAuthKindContextKey{}).(string)
 		eligibility.credentialPolicy, _ = ctx.Value(credentialPolicyContextKey{}).(string)
@@ -116,6 +126,9 @@ func authSelectionEligibilityForRequest(ctx context.Context, opts cliproxyexecut
 
 func (e authSelectionEligibility) allows(auth *Auth) bool {
 	if auth == nil {
+		return false
+	}
+	if e.routeSet && !authAllowedOnRoute(e.route, auth) {
 		return false
 	}
 	if e.requiredKind != "" && auth.AuthKind() != e.requiredKind {
@@ -1867,7 +1880,7 @@ func (m *Manager) shouldRetryAfterErrorWithAttempted(ctx context.Context, opts c
 		}
 		return *retryAfter, true
 	}
-	eligibility := authSelectionEligibilityForRequest(ctx, opts)
+	eligibility := authSelectionEligibilityForRequest(ctx, opts, m.endpointRoutes.Load())
 	pinnedAuthID := pinnedAuthIDFromMetadata(opts.Metadata)
 	if affinity, ok := m.Selector().(*SessionAffinitySelector); ok && affinity != nil && affinity.rebindOnNever {
 		var authErr *Error
@@ -2300,7 +2313,7 @@ func (m *Manager) pickNextLegacy(ctx context.Context, provider, model string, op
 	opts.Metadata[cliproxyexecutor.SessionAffinityProviderMetadataKey] = provider
 
 	pinnedAuthID := pinnedAuthIDFromMetadata(opts.Metadata)
-	eligibility := authSelectionEligibilityForRequest(ctx, opts)
+	eligibility := authSelectionEligibilityForRequest(ctx, opts, m.endpointRoutes.Load())
 	pluginScheduler, schedulerAcross := m.snapshotPluginScheduler()
 
 	m.mu.RLock()
@@ -2656,7 +2669,7 @@ func (m *Manager) pickNext(ctx context.Context, provider, model string, opts cli
 	if m.hasPluginScheduler() || !m.useSchedulerFastPath() {
 		return m.pickNextLegacy(ctx, provider, model, opts, tried)
 	}
-	eligibility := authSelectionEligibilityForRequest(ctx, opts)
+	eligibility := authSelectionEligibilityForRequest(ctx, opts, m.endpointRoutes.Load())
 	targetKey := canonicalSchedulingProvider(provider)
 	if strings.TrimSpace(model) != "" || targetKey == "codex" {
 		m.mu.RLock()
@@ -2731,7 +2744,7 @@ func (m *Manager) HasAlternativeTargetForModel(ctx context.Context, providers []
 	if len(providerSet) == 0 {
 		return false
 	}
-	eligibility := authSelectionEligibilityForRequest(ctx, opts)
+	eligibility := authSelectionEligibilityForRequest(ctx, opts, m.endpointRoutes.Load())
 	modelKey := canonicalModelKey(model)
 	registryRef := registry.GetGlobalRegistry()
 
@@ -2782,7 +2795,7 @@ func (m *Manager) pickNextMixedLegacy(ctx context.Context, providers []string, m
 	opts.Metadata[cliproxyexecutor.SessionAffinityProviderMetadataKey] = "mixed"
 
 	pinnedAuthID := pinnedAuthIDFromMetadata(opts.Metadata)
-	eligibility := authSelectionEligibilityForRequest(ctx, opts)
+	eligibility := authSelectionEligibilityForRequest(ctx, opts, m.endpointRoutes.Load())
 
 	providerSet := make(map[string]struct{}, len(providers))
 	for _, provider := range providers {
@@ -3017,7 +3030,7 @@ func (m *Manager) pickNextMixed(ctx context.Context, providers []string, model s
 	if len(eligibleProviders) == 0 {
 		return nil, nil, "", &Error{Code: "auth_not_found", Message: "no auth available"}
 	}
-	eligibility := authSelectionEligibilityForRequest(ctx, opts)
+	eligibility := authSelectionEligibilityForRequest(ctx, opts, m.endpointRoutes.Load())
 	providerSet := make(map[string]struct{}, len(eligibleProviders))
 	for _, providerKey := range eligibleProviders {
 		providerSet[providerKey] = struct{}{}
@@ -3144,7 +3157,7 @@ func (m *Manager) earliestPoolCooldownForModelAt(ctx context.Context, providers 
 	excludeZeroWeight := selectorExcludesZeroWeight(m.Selector())
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	eligibility := authSelectionEligibilityForRequest(ctx, opts)
+	eligibility := authSelectionEligibilityForRequest(ctx, opts, m.endpointRoutes.Load())
 	pinnedAuthID := pinnedAuthIDFromMetadata(opts.Metadata)
 	providerSet := make(map[string]struct{}, len(providers))
 	for _, p := range providers {
@@ -3266,7 +3279,7 @@ func (m *Manager) warnLogAuthUnavailable(ctx context.Context, providers []string
 	now := time.Now()
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	eligibility := authSelectionEligibilityForRequest(ctx, opts)
+	eligibility := authSelectionEligibilityForRequest(ctx, opts, m.endpointRoutes.Load())
 	pinnedAuthID := pinnedAuthIDFromMetadata(opts.Metadata)
 	providerSet := make(map[string]struct{}, len(providers))
 	for _, p := range providers {
@@ -3323,4 +3336,92 @@ func (m *Manager) warnLogAuthUnavailable(ctx context.Context, providers []string
 			entry.Warnf("auth unavailable: %d of %d candidate(s) for model %q (providers=%s) are in cooldown: %s", len(coolingSummaries), totalCandidates, model, providerText, strings.Join(coolingSummaries, ", "))
 		}
 	}
+}
+
+// authAllowedOnRoute uses the same provider key as the scheduler, while also
+// accepting the credential's provider name for named compatibility providers.
+func authAllowedOnRoute(route *routes.Route, auth *Auth) bool {
+	if route == nil || auth == nil {
+		return false
+	}
+	provider := executorKeyFromAuth(auth)
+	if !route.AllowsProvider(provider, strings.TrimPrefix(provider, "openai-compatible-"), auth.Provider) {
+		return false
+	}
+	name := auth.FileName
+	if name == "" {
+		name = auth.Attributes["path"]
+	}
+	if name != "" {
+		name = filepath.Base(name)
+	}
+	return route.AllowsFile(name)
+}
+
+// RouteSnapshot returns the immutable endpoint routes currently used for selection.
+func (m *Manager) RouteSnapshot() *routes.Snapshot {
+	if m == nil {
+		return nil
+	}
+	return m.endpointRoutes.Load()
+}
+
+// RouteModelIDs returns models registered by credentials eligible on a route.
+// Unknown names fail closed; unrouted callers should retain their normal catalog.
+func (m *Manager) RouteModelIDs(name string) map[string]struct{} {
+	ids := make(map[string]struct{})
+	if m == nil {
+		return ids
+	}
+	route := m.RouteSnapshot().Named(name)
+	if route == nil {
+		return ids
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for _, auth := range m.auths {
+		if auth.Disabled || auth.Status == StatusDisabled || !authAllowedOnRoute(route, auth) {
+			continue
+		}
+		models, _ := registry.GetGlobalRegistry().GetModelsAndEpochForClient(auth.ID)
+		for _, model := range models {
+			if model != nil {
+				ids[model.ID] = struct{}{}
+			}
+		}
+	}
+	return ids
+}
+
+// SetRoutes publishes endpoint selectors for standalone API server embedders.
+func (m *Manager) SetRoutes(configs []routes.Config) {
+	if m != nil {
+		m.endpointRoutes.Update(configs)
+	}
+}
+
+// RouteAllowsProvider recognizes scheduling keys and original auth provider names.
+func (m *Manager) RouteAllowsProvider(route *routes.Route, provider string) bool {
+	if route == nil {
+		return false
+	}
+	if route.AllowsProvider(provider, strings.TrimPrefix(provider, "openai-compatible-")) {
+		return true
+	}
+	if m == nil {
+		return false
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	for _, auth := range m.auths {
+		if executorKeyFromAuth(auth) == provider && route.AllowsProvider(auth.Provider) {
+			return true
+		}
+	}
+	return false
+}
+
+// RouteAllowsAuth checks endpoint eligibility for a retained credential.
+func (m *Manager) RouteAllowsAuth(name string, auth *Auth) bool {
+	return authAllowedOnRoute(m.RouteSnapshot().Named(name), auth)
 }

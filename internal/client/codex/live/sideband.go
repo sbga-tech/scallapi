@@ -391,6 +391,13 @@ func (h *Handler) HandleSideband(c *gin.Context) {
 		writeSelectionError(c, errSelect)
 		return
 	}
+	if !h.routeAllowsAuth(ctx, selected) {
+		if selection != nil && selection != session.homeSelection {
+			selection.End("route_not_available")
+		}
+		writeSelectionError(c, &auth.Error{Code: "auth_not_found", Message: "no auth available on route", HTTPStatus: http.StatusServiceUnavailable})
+		return
+	}
 	if selection != nil && selection.CanonicalSessionID != "" {
 		meta := logging.GetClientRequestMetadata(ctx)
 		meta.SessionID = selection.CanonicalSessionID

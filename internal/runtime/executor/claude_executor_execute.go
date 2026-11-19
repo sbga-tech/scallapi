@@ -250,11 +250,8 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
 	// Keep built-in cleanup before the final user payload rules.
 	stripPromptCacheOptionsDoc(doc)
 	// User rules match the fully prepared business body and are applied only once.
-	touchedPayloadPaths := helps.ApplyPayloadConfigWithTrackedPathsDoc(
-		e.cfg, baseModel, to.String(), from.String(), "", doc, stripTranslatedDefaultMaxTokens(from, originalPayload, originalTranslated),
-		helps.PayloadRequestedModel(opts, req.Model), helps.PayloadRequestPath(opts), opts.Headers,
-		"diagnostics", "betas",
-	)
+	touchedPayloadPaths := helps.ApplyPayloadConfigWithTrackedPathsDoc(e.cfg, baseModel, to.String(), from.String(), "", doc, stripTranslatedDefaultMaxTokens(from, originalPayload, originalTranslated), helps.PayloadRequestedModel(opts, req.Model), helps.PayloadRequestPath(opts), helps.PayloadRoute(opts), opts.Headers,
+		"diagnostics", "betas")
 	if touchedPayloadPaths["diagnostics"] {
 		diagnosticsState = claudeDiagnosticsRequestState{}
 	}

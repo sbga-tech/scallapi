@@ -65,7 +65,7 @@ func BenchmarkPayloadReplace(b *testing.B) {
 			}
 			b.ReportAllocs()
 			for b.Loop() {
-				_ = ApplyPayloadConfigWithRoot(cfg, "model", scenario.protocol, "", body, nil, "", "")
+				_ = ApplyPayloadConfigWithRoot(cfg, "model", scenario.protocol, "", body, nil, "", "", "")
 			}
 		})
 	}

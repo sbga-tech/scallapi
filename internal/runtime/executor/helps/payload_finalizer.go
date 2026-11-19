@@ -51,6 +51,7 @@ func (f PayloadFinalizer) FinalizeDoc(doc *ojson.Doc) {
 func NewPayloadFinalizer(cfg *config.Config, executor, model, protocol, root string, original []byte, req cliproxyexecutor.Request, opts cliproxyexecutor.Options, auths ...*cliproxyauth.Auth) PayloadFinalizer {
 	requestedModel := PayloadRequestedModel(opts, req.Model)
 	requestPath := PayloadRequestPath(opts)
+	route := PayloadRoute(opts)
 	headers := opts.Headers.Clone()
 	source := append([]byte(nil), original...)
 	var auth *cliproxyauth.Auth
@@ -66,7 +67,7 @@ func NewPayloadFinalizer(cfg *config.Config, executor, model, protocol, root str
 			key := &body[:1][0]
 			if v, ok := payloadDocProbes.LoadAndDelete(key); ok {
 				if doc, okDoc := v.(*ojson.Doc); okDoc && doc != nil {
-					applyPayloadConfigWithTrackedPathsForExecutorAndAuthDoc(cfg, executor, model, protocol, opts.SourceFormat.String(), root, doc, source, requestedModel, requestPath, headers, auth)
+					applyPayloadConfigWithTrackedPathsForExecutorAndAuthDoc(cfg, executor, model, protocol, opts.SourceFormat.String(), root, doc, source, requestedModel, requestPath, headers, auth, route)
 					if formatCallback != nil {
 						formatCallback(strings.Clone(strings.TrimSpace(doc.Get(buildPayloadPath(root, "response_format")).String())))
 					}
@@ -75,7 +76,7 @@ func NewPayloadFinalizer(cfg *config.Config, executor, model, protocol, root str
 			}
 		}
 		doc := ojson.NewDoc(body)
-		_, mutated := applyPayloadConfigWithTrackedPathsForExecutorAndAuthDoc(cfg, executor, model, protocol, opts.SourceFormat.String(), root, doc, source, requestedModel, requestPath, headers, auth)
+		_, mutated := applyPayloadConfigWithTrackedPathsForExecutorAndAuthDoc(cfg, executor, model, protocol, opts.SourceFormat.String(), root, doc, source, requestedModel, requestPath, headers, auth, route)
 		out := body
 		if mutated {
 			out = doc.Bytes()

@@ -63,9 +63,9 @@ func TestPayloadReplacePaths(t *testing.T) {
 				doc := ojson.NewDocString(tt.input)
 				var touched map[string]bool
 				if mode == "doc" {
-					touched = ApplyPayloadConfigWithTrackedPathsDoc(cfg, "model", tt.protocol, "", tt.root, doc, nil, "", "", nil, "tools", "metadata", "request")
+					touched = ApplyPayloadConfigWithTrackedPathsDoc(cfg, "model", tt.protocol, "", tt.root, doc, nil, "", "", "", nil, "tools", "metadata", "request")
 				} else {
-					out, writes := ApplyPayloadConfigWithTrackedPaths(cfg, "model", tt.protocol, "", tt.root, []byte(tt.input), nil, "", "", nil, "tools", "metadata", "request")
+					out, writes := ApplyPayloadConfigWithTrackedPaths(cfg, "model", tt.protocol, "", tt.root, []byte(tt.input), nil, "", "", "", nil, "tools", "metadata", "request")
 					doc, touched = ojson.NewDoc(out), writes
 				}
 				for path, want := range tt.want {
@@ -728,9 +728,9 @@ func TestPayloadReplacePathsWildcardTracking(t *testing.T) {
 			doc := ojson.NewDoc(body)
 			var touched map[string]bool
 			if mode == "doc" {
-				touched = ApplyPayloadConfigWithTrackedPathsDoc(cfg, "model", "custom", "", "", doc, nil, "", "", nil, "tools", "tools.0", "tools.0.output_format")
+				touched = ApplyPayloadConfigWithTrackedPathsDoc(cfg, "model", "custom", "", "", doc, nil, "", "", "", nil, "tools", "tools.0", "tools.0.output_format")
 			} else {
-				out, writes := ApplyPayloadConfigWithTrackedPaths(cfg, "model", "custom", "", "", body, nil, "", "", nil, "tools", "tools.0", "tools.0.output_format")
+				out, writes := ApplyPayloadConfigWithTrackedPaths(cfg, "model", "custom", "", "", body, nil, "", "", "", nil, "tools", "tools.0", "tools.0.output_format")
 				doc, touched = ojson.NewDoc(out), writes
 			}
 			if got := doc.Get("tools.0.output_format").String(); got != "webp" {
@@ -750,7 +750,7 @@ func TestPayloadReplacePathsNoOp(t *testing.T) {
 		Target:       config.PayloadReplaceTarget{Paths: []string{"object", "array", "number", "bool", "null", "text", "missing", "missing.0.text", `array.#(text=="hero")#.text`}},
 		Replacements: []config.PayloadReplacement{{"hero": "changed"}},
 	}}}}
-	out, touched := ApplyPayloadConfigWithTrackedPaths(cfg, "model", "", "", "", input, nil, "", "", nil, "object", "array", "number", "bool", "null", "text", "missing")
+	out, touched := ApplyPayloadConfigWithTrackedPaths(cfg, "model", "", "", "", input, nil, "", "", "", nil, "object", "array", "number", "bool", "null", "text", "missing")
 	if !bytes.Equal(out, input) || &out[0] != &input[0] || len(touched) != 0 {
 		t.Fatalf("no-op changed input or tracked writes: %s, touched=%v", out, touched)
 	}
@@ -796,7 +796,7 @@ func TestPayloadReplacePathsStageOrderAndGates(t *testing.T) {
 	}}
 	for _, header := range []string{"prod-a", "dev"} {
 		doc := ojson.NewDocString(`{"metadata":{"description":"original"}}`)
-		ApplyPayloadConfigWithRequestDoc(cfg, "model", "custom", "responses", "", doc, nil, "alias-model", "", http.Header{"X-Tier": {header}})
+		ApplyPayloadConfigWithRequestDoc(cfg, "model", "custom", "responses", "", doc, nil, "alias-model", "", "", http.Header{"X-Tier": {header}})
 		want := "hero"
 		if header == "prod-a" {
 			want = "hero!!"
@@ -826,7 +826,7 @@ func TestPayloadReplacePathsCodexImageToolTracking(t *testing.T) {
 				Replacements: []config.PayloadReplacement{{tt.from: tt.to}},
 			}}}}
 			doc := ojson.NewDocString(`{"model":"gpt-6-astra","input":[],"reasoning":{"effort":"` + tt.effort + `"},"tools":[{"type":"image_generation","output_format":"png"}]}`)
-			ApplyPayloadConfigWithRequestForExecutorDoc(cfg, "codex", "gpt-6-astra", "codex", "", "", doc, []byte(original), "", "", nil)
+			ApplyPayloadConfigWithRequestForExecutorDoc(cfg, "codex", "gpt-6-astra", "codex", "", "", doc, []byte(original), "", "", "", nil)
 			if doc.Get("tools").Exists() != tt.wantTool {
 				t.Fatalf("explicit/automatic image tool tracking failed: %s", doc.String())
 			}
@@ -860,9 +860,9 @@ func TestPayloadReplacePathsIdentityToolTracking(t *testing.T) {
 				doc := ojson.NewDocString(input)
 				var touched map[string]bool
 				if mode == "doc" {
-					touched = ApplyPayloadConfigWithTrackedPathsForExecutorDoc(cfg, "codex", "gpt-6-astra", "codex", "", "", doc, []byte(original), "", "", nil, "tools.0", "tools.0.labels.0")
+					touched = ApplyPayloadConfigWithTrackedPathsForExecutorDoc(cfg, "codex", "gpt-6-astra", "codex", "", "", doc, []byte(original), "", "", "", nil, "tools.0", "tools.0.labels.0")
 				} else {
-					out, writes := ApplyPayloadConfigWithTrackedPathsForExecutor(cfg, "codex", "gpt-6-astra", "codex", "", "", []byte(input), []byte(original), "", "", nil, "tools.0", "tools.0.labels.0")
+					out, writes := ApplyPayloadConfigWithTrackedPathsForExecutor(cfg, "codex", "gpt-6-astra", "codex", "", "", []byte(input), []byte(original), "", "", "", nil, "tools.0", "tools.0.labels.0")
 					doc, touched = ojson.NewDoc(out), writes
 				}
 				if doc.Get("tools").Exists() != tt.wantTool || touched["tools.0"] != tt.wantTool || touched["tools.0.labels.0"] != tt.wantTool {

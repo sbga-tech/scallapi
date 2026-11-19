@@ -4,6 +4,11 @@
 // debug settings, proxy configuration, and API keys.
 package config
 
+import "github.com/router-for-me/CLIProxyAPI/v8/internal/routes"
+
+// RouteConfig describes a named endpoint prefix and its credential selectors.
+type RouteConfig = routes.Config
+
 // ServerResponseCompression mirrors SDKConfig.ResponseCompression on the outer
 // Config so JSON and YAML round trips preserve server.response-compression.
 // The canonical storage remains SDKConfig.ResponseCompression; read the
@@ -17,6 +22,9 @@ type Config struct {
 	ServerResponseCompression ResponseCompressionConfig `yaml:"-" json:"response-compression"`
 	// Models selects optional catalog sources independently for each catalog.
 	Models ModelCatalogs `yaml:"models" json:"models"`
+
+	// Routes scopes credentials and rewrites named endpoint prefixes.
+	Routes []RouteConfig `yaml:"routes" json:"routes"`
 
 	SDKConfig `yaml:",inline"`
 	// Host is the network host/interface on which the API server will bind.

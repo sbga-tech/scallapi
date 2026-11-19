@@ -19,6 +19,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/interfaces"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/logging"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/routes"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/thinking"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
 	coreauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
@@ -348,6 +349,9 @@ func requestExecutionMetadata(ctx context.Context) map[string]any {
 	}
 
 	meta := make(map[string]any)
+	if route := requestRoute(ctx); route != nil {
+		meta[coreexecutor.RouteMetadataKey] = route.Name()
+	}
 	if key != "" {
 		meta[idempotencyKeyMetadataKey] = key
 	}
@@ -887,3 +891,15 @@ func appendAPIResponse(c *gin.Context, data []byte) {
 // APIHandlerCancelFunc is a function type for canceling an API handler's context.
 // It can optionally accept parameters, which are used for logging the response.
 type APIHandlerCancelFunc func(params ...interface{})
+
+func requestRoute(ctx context.Context) *routes.Route {
+	if route := routes.FromContext(ctx); route != nil {
+		return route
+	}
+	if ctx != nil {
+		if c, ok := ctx.Value("gin").(*gin.Context); ok && c != nil && c.Request != nil {
+			return routes.FromContext(c.Request.Context())
+		}
+	}
+	return nil
+}

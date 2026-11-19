@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/routes"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 )
 
@@ -43,6 +44,7 @@ type scheduledGenerationMeta struct {
 
 // authScheduler keeps the incremental provider/model scheduling state used by Manager.
 type authScheduler struct {
+	endpointRoutes      *routes.Store
 	mu                  sync.Mutex
 	strategy            schedulerStrategy
 	weightedSelector    *WeightedRoundRobinSelector
@@ -471,7 +473,7 @@ func (s *authScheduler) pickSingleWithStrategy(ctx context.Context, provider, mo
 	providerKey := canonicalSchedulingProvider(provider)
 	modelKey := canonicalModelLookupKey(model)
 	pinnedAuthID := pinnedAuthIDFromMetadata(opts.Metadata)
-	eligibility := authSelectionEligibilityForRequest(ctx, opts)
+	eligibility := authSelectionEligibilityForRequest(ctx, opts, s.endpointRoutes.Load())
 	preferWebsocket := cliproxyexecutor.DownstreamWebsocket(ctx) && providerPrefersWebsocketTransport(providerKey) && pinnedAuthID == ""
 
 	s.mu.Lock()
@@ -565,7 +567,7 @@ func (s *authScheduler) pickMixedWithStrategy(ctx context.Context, providers []s
 		return picked, providerKey, nil
 	}
 	pinnedAuthID := pinnedAuthIDFromMetadata(opts.Metadata)
-	eligibility := authSelectionEligibilityForRequest(ctx, opts)
+	eligibility := authSelectionEligibilityForRequest(ctx, opts, s.endpointRoutes.Load())
 	modelKey := canonicalModelLookupKey(model)
 
 	s.mu.Lock()

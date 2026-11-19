@@ -715,6 +715,11 @@ func modelListInterceptorMetadata(c *gin.Context) map[string]any {
 		}
 		meta[key] = value
 	}
+	if c.Request != nil {
+		if route := requestRoute(c.Request.Context()); route != nil {
+			setMeta(coreexecutor.RouteMetadataKey, route.Name())
+		}
+	}
 	if callerScope := requestCallerScope(c); callerScope != "" {
 		setMeta(coreexecutor.CallerScopeMetadataKey, callerScope)
 	}
@@ -797,6 +802,8 @@ func (h *BaseAPIHandler) WriteModelListResponse(c *gin.Context, sourceFormat str
 			}
 		}
 	}
+
+	body = h.filterRouteModelList(c, sourceFormat, body)
 
 	if modelID, detail := c.Get(ModelDetailIDContextKey); detail {
 		c.Writer.Header().Del("Content-Length")

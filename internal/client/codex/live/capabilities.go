@@ -106,6 +106,13 @@ func (h *Handler) HandleHangup(c *gin.Context) {
 		selected = selectedAuth
 		temporarySelection = selection != nil
 	}
+	if !h.routeAllowsAuth(ctx, selected) {
+		if temporarySelection && activeSelection != nil {
+			activeSelection.End("route_not_available")
+		}
+		writeSelectionError(c, &auth.Error{Code: "auth_not_found", Message: "no auth available on route", HTTPStatus: http.StatusServiceUnavailable})
+		return
+	}
 	var selectionRelease func()
 	if activeSelection != nil {
 		attemptCtx, releaseAttempt, errAttempt := activeSelection.AttemptContext(ctx)

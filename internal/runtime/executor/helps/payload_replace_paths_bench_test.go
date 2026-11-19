@@ -97,7 +97,7 @@ func BenchmarkPayloadReplacePathsScaling(b *testing.B) {
 					b.ReportAllocs()
 					b.SetBytes(int64(len(body)))
 					for b.Loop() {
-						_ = ApplyPayloadConfigWithRoot(cfg, "model", "openai", "", body, nil, "", "")
+						_ = ApplyPayloadConfigWithRoot(cfg, "model", "openai", "", body, nil, "", "", "")
 					}
 				})
 			}

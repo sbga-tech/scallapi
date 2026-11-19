@@ -9,6 +9,7 @@ import (
 	"time"
 
 	internalconfig "github.com/router-for-me/CLIProxyAPI/v8/internal/config"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/routes"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 	"golang.org/x/sync/semaphore"
@@ -246,7 +247,8 @@ type Manager struct {
 
 	// runtimeConfig stores the latest application config for request-time decisions.
 	// It is initialized in NewManager; never Load() before first Store().
-	runtimeConfig atomic.Value
+	runtimeConfig  atomic.Value
+	endpointRoutes routes.Store
 
 	// Optional HTTP RoundTripper provider injected by host.
 	rtProvider RoundTripperProvider
@@ -304,6 +306,7 @@ func NewManager(store Store, selector Selector, hook Hook) *Manager {
 		manager.ApplyHomeInFlightPublisherConfig(defaultInFlightConfig)
 	}
 	manager.scheduler = newAuthScheduler(selector)
+	manager.scheduler.endpointRoutes = &manager.endpointRoutes
 	return manager
 }
 

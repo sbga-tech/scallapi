@@ -27,7 +27,7 @@ func TestPayloadReplaceChatRoles(t *testing.T) {
 					paths = paths[1:]
 				}
 				cfg := &config.Config{Payload: config.PayloadConfig{Replace: []config.PayloadReplaceRule{{Models: []config.PayloadModelRule{{Name: "*"}}, Target: target, Replacements: []config.PayloadReplacement{{"hero": "hero!"}}}}}}
-				out := ApplyPayloadConfigWithRoot(cfg, "model", "openai", "", []byte(input), nil, "", "")
+				out := ApplyPayloadConfigWithRoot(cfg, "model", "openai", "", []byte(input), nil, "", "", "")
 				want := ojson.NewDocString(input)
 				for _, path := range paths {
 					if errSet := want.Set(path, "hero!"); errSet != nil {
@@ -60,7 +60,7 @@ func TestPayloadReplaceRejectsAssistant(t *testing.T) {
 				Replacements: []config.PayloadReplacement{{"hero": "hero!"}, {"pattern": "hero", "replacement": "changed"}},
 			}
 			cfg := &config.Config{Payload: config.PayloadConfig{Replace: []config.PayloadReplaceRule{rule}}}
-			out := ApplyPayloadConfigWithRoot(cfg, "model", tt.protocol, tt.root, []byte(tt.input), nil, "", "")
+			out := ApplyPayloadConfigWithRoot(cfg, "model", tt.protocol, tt.root, []byte(tt.input), nil, "", "", "")
 			if string(out) != tt.input {
 				t.Fatalf("unsupported assistant rule modified the request: %s", out)
 			}
@@ -98,7 +98,7 @@ func TestPayloadReplaceRegexRoles(t *testing.T) {
 			nextRule := rule
 			nextRule.Replacements = []config.PayloadReplacement{{"account": "acct"}}
 			cfg := &config.Config{Payload: config.PayloadConfig{Replace: []config.PayloadReplaceRule{rule, nextRule}}}
-			out := ApplyPayloadConfigWithRoot(cfg, "model", tt.protocol, tt.root, []byte(tt.input), nil, "", "")
+			out := ApplyPayloadConfigWithRoot(cfg, "model", tt.protocol, tt.root, []byte(tt.input), nil, "", "", "")
 			want := ojson.NewDocString(tt.input)
 			if errSet := want.Set(tt.path, "acct-42 friend"); errSet != nil {
 				t.Fatal(errSet)
@@ -162,7 +162,7 @@ func TestPayloadReplaceNativeRoles(t *testing.T) {
 				}
 			}
 			cfg := &config.Config{Payload: config.PayloadConfig{Replace: []config.PayloadReplaceRule{rule}}}
-			out := ApplyPayloadConfigWithRoot(cfg, "model", tt.protocol, tt.root, []byte(tt.input), nil, "", "")
+			out := ApplyPayloadConfigWithRoot(cfg, "model", tt.protocol, tt.root, []byte(tt.input), nil, "", "", "")
 			want := ojson.NewDocString(tt.input)
 			for _, path := range tt.paths {
 				if errSet := want.Set(path, strings.Repeat("hero!", 64)); errSet != nil {

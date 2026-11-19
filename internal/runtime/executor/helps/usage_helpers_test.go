@@ -966,18 +966,7 @@ func TestUsageReporterCapturesEffectiveServiceTierAfterPayloadOverride(t *testin
 			}},
 		},
 	}
-	finalPayload := ApplyPayloadConfigWithRequest(
-		cfg,
-		"gpt-6-astra",
-		"codex",
-		"openai",
-		"",
-		[]byte(`{"model":"gpt-6-astra"}`),
-		nil,
-		"gpt-6-astra",
-		"/v1/chat/completions",
-		nil,
-	)
+	finalPayload := ApplyPayloadConfigWithRequest(cfg, "gpt-6-astra", "codex", "openai", "", []byte(`{"model":"gpt-6-astra"}`), nil, "gpt-6-astra", "/v1/chat/completions", "", nil)
 
 	ctx := usage.WithServiceTier(context.Background(), "auto")
 	reporter := NewUsageReporter(ctx, "codex", "gpt-6-astra", nil)

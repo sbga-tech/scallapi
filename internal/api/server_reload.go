@@ -62,6 +62,10 @@ func (s *Server) UpdateClientsContext(ctx context.Context, cfg *config.Config) b
 		return false
 	}
 	cfg = cfg.CloneForRuntime()
+	if errNormalize := cfg.NormalizeRoutes(); errNormalize != nil {
+		log.WithError(errNormalize).Error("invalid endpoint routes")
+		return false
+	}
 	// Reconstruct old config from YAML snapshot to avoid reference sharing issues
 	var oldCfg *config.Config
 	s.cfgMu.RLock()
@@ -184,6 +188,10 @@ func (s *Server) UpdateClientsContext(ctx context.Context, cfg *config.Config) b
 	s.cfgMu.Lock()
 	s.cfg = cfg
 	s.cfgMu.Unlock()
+	s.endpointRoutes.Update(cfg.Routes)
+	if s.handlers != nil && s.handlers.AuthManager != nil {
+		s.handlers.AuthManager.SetRoutes(cfg.Routes)
+	}
 	if s.codexLiveHandler != nil {
 		if errUpdate := s.codexLiveHandler.UpdateConfig(cfg); errUpdate != nil {
 			log.WithError(errUpdate).Error("failed to update Codex Live media relay configuration")

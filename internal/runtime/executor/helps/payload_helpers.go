@@ -30,35 +30,36 @@ func PayloadConfigEvaluationCount() int64 {
 // against the original payload when provided. requestedModel carries the client-visible
 // model name before alias resolution so payload rules can target aliases precisely.
 // requestPath is the inbound HTTP request path (when available) used for endpoint-scoped gates.
-func ApplyPayloadConfigWithRoot(cfg *config.Config, model, protocol, root string, payload, original []byte, requestedModel string, requestPath string) []byte {
-	return ApplyPayloadConfigWithRequest(cfg, model, protocol, "", root, payload, original, requestedModel, requestPath, nil)
+// route is the matched endpoint route name, or empty for an unrouted request.
+func ApplyPayloadConfigWithRoot(cfg *config.Config, model, protocol, root string, payload, original []byte, requestedModel string, requestPath, route string) []byte {
+	return ApplyPayloadConfigWithRequest(cfg, model, protocol, "", root, payload, original, requestedModel, requestPath, route, nil)
 }
 
 // ApplyPayloadConfigWithRootDoc applies payload config in place on doc with parameter paths relative to root.
-func ApplyPayloadConfigWithRootDoc(cfg *config.Config, model, protocol, root string, doc *ojson.Doc, original []byte, requestedModel string, requestPath string) {
-	ApplyPayloadConfigWithRequestDoc(cfg, model, protocol, "", root, doc, original, requestedModel, requestPath, nil)
+func ApplyPayloadConfigWithRootDoc(cfg *config.Config, model, protocol, root string, doc *ojson.Doc, original []byte, requestedModel string, requestPath, route string) {
+	ApplyPayloadConfigWithRequestDoc(cfg, model, protocol, "", root, doc, original, requestedModel, requestPath, route, nil)
 }
 
 // ApplyPayloadConfigWithRequest applies payload config using source protocol and request header gates.
-func ApplyPayloadConfigWithRequest(cfg *config.Config, model, protocol, fromProtocol, root string, payload, original []byte, requestedModel string, requestPath string, headers http.Header) []byte {
-	out, _ := ApplyPayloadConfigWithRequestTracked(cfg, model, protocol, fromProtocol, root, payload, original, requestedModel, requestPath, headers, "")
+func ApplyPayloadConfigWithRequest(cfg *config.Config, model, protocol, fromProtocol, root string, payload, original []byte, requestedModel string, requestPath, route string, headers http.Header) []byte {
+	out, _ := ApplyPayloadConfigWithRequestTracked(cfg, model, protocol, fromProtocol, root, payload, original, requestedModel, requestPath, route, headers, "")
 	return out
 }
 
 // ApplyPayloadConfigWithRequestDoc applies payload config in place on doc using source protocol and request header gates.
-func ApplyPayloadConfigWithRequestDoc(cfg *config.Config, model, protocol, fromProtocol, root string, doc *ojson.Doc, original []byte, requestedModel string, requestPath string, headers http.Header) {
-	_ = ApplyPayloadConfigWithRequestTrackedDoc(cfg, model, protocol, fromProtocol, root, doc, original, requestedModel, requestPath, headers, "")
+func ApplyPayloadConfigWithRequestDoc(cfg *config.Config, model, protocol, fromProtocol, root string, doc *ojson.Doc, original []byte, requestedModel string, requestPath, route string, headers http.Header) {
+	_ = ApplyPayloadConfigWithRequestTrackedDoc(cfg, model, protocol, fromProtocol, root, doc, original, requestedModel, requestPath, route, headers, "")
 }
 
 // ApplyPayloadConfigWithRequestForExecutor applies payload config with explicit target executor context.
-func ApplyPayloadConfigWithRequestForExecutor(cfg *config.Config, targetExecutor, model, protocol, fromProtocol, root string, payload, original []byte, requestedModel string, requestPath string, headers http.Header) []byte {
-	out, _ := ApplyPayloadConfigWithTrackedPathsForExecutor(cfg, targetExecutor, model, protocol, fromProtocol, root, payload, original, requestedModel, requestPath, headers)
+func ApplyPayloadConfigWithRequestForExecutor(cfg *config.Config, targetExecutor, model, protocol, fromProtocol, root string, payload, original []byte, requestedModel string, requestPath, route string, headers http.Header) []byte {
+	out, _ := ApplyPayloadConfigWithTrackedPathsForExecutor(cfg, targetExecutor, model, protocol, fromProtocol, root, payload, original, requestedModel, requestPath, route, headers)
 	return out
 }
 
 // ApplyPayloadConfigWithRequestForExecutorDoc applies payload config in place on doc with explicit target executor context.
-func ApplyPayloadConfigWithRequestForExecutorDoc(cfg *config.Config, targetExecutor, model, protocol, fromProtocol, root string, doc *ojson.Doc, original []byte, requestedModel string, requestPath string, headers http.Header) {
-	_ = ApplyPayloadConfigWithTrackedPathsForExecutorDoc(cfg, targetExecutor, model, protocol, fromProtocol, root, doc, original, requestedModel, requestPath, headers)
+func ApplyPayloadConfigWithRequestForExecutorDoc(cfg *config.Config, targetExecutor, model, protocol, fromProtocol, root string, doc *ojson.Doc, original []byte, requestedModel string, requestPath, route string, headers http.Header) {
+	_ = ApplyPayloadConfigWithTrackedPathsForExecutorDoc(cfg, targetExecutor, model, protocol, fromProtocol, root, doc, original, requestedModel, requestPath, route, headers)
 }
 
 func isCodexTargetExecutor(targetExecutor string) bool {
@@ -68,26 +69,26 @@ func isCodexTargetExecutor(targetExecutor string) bool {
 
 // ApplyPayloadConfigWithTrackedPaths applies payload config and reports which
 // tracked paths (or their descendants) were targeted by an applied rule.
-func ApplyPayloadConfigWithTrackedPaths(cfg *config.Config, model, protocol, fromProtocol, root string, payload, original []byte, requestedModel string, requestPath string, headers http.Header, trackedPaths ...string) ([]byte, map[string]bool) {
-	return ApplyPayloadConfigWithTrackedPathsForExecutor(cfg, "", model, protocol, fromProtocol, root, payload, original, requestedModel, requestPath, headers, trackedPaths...)
+func ApplyPayloadConfigWithTrackedPaths(cfg *config.Config, model, protocol, fromProtocol, root string, payload, original []byte, requestedModel string, requestPath, route string, headers http.Header, trackedPaths ...string) ([]byte, map[string]bool) {
+	return ApplyPayloadConfigWithTrackedPathsForExecutor(cfg, "", model, protocol, fromProtocol, root, payload, original, requestedModel, requestPath, route, headers, trackedPaths...)
 }
 
 // ApplyPayloadConfigWithTrackedPathsDoc applies payload config in place on doc and reports which
 // tracked paths (or their descendants) were targeted by an applied rule.
-func ApplyPayloadConfigWithTrackedPathsDoc(cfg *config.Config, model, protocol, fromProtocol, root string, doc *ojson.Doc, original []byte, requestedModel string, requestPath string, headers http.Header, trackedPaths ...string) map[string]bool {
-	return ApplyPayloadConfigWithTrackedPathsForExecutorDoc(cfg, "", model, protocol, fromProtocol, root, doc, original, requestedModel, requestPath, headers, trackedPaths...)
+func ApplyPayloadConfigWithTrackedPathsDoc(cfg *config.Config, model, protocol, fromProtocol, root string, doc *ojson.Doc, original []byte, requestedModel string, requestPath, route string, headers http.Header, trackedPaths ...string) map[string]bool {
+	return ApplyPayloadConfigWithTrackedPathsForExecutorDoc(cfg, "", model, protocol, fromProtocol, root, doc, original, requestedModel, requestPath, route, headers, trackedPaths...)
 }
 
 // ApplyPayloadConfigWithTrackedPathsForExecutor applies payload config with target executor awareness.
 // When headers indicate a Codex client and the target executor is not Codex or Codex WebSocket,
 // it normalizes tool parameter integer types to satisfy client-side integer deserialization (#6237).
 // For Codex and Codex WebSocket targets, integer normalization is skipped (#6244).
-func ApplyPayloadConfigWithTrackedPathsForExecutor(cfg *config.Config, targetExecutor, model, protocol, fromProtocol, root string, payload, original []byte, requestedModel string, requestPath string, headers http.Header, trackedPaths ...string) ([]byte, map[string]bool) {
+func ApplyPayloadConfigWithTrackedPathsForExecutor(cfg *config.Config, targetExecutor, model, protocol, fromProtocol, root string, payload, original []byte, requestedModel string, requestPath, route string, headers http.Header, trackedPaths ...string) ([]byte, map[string]bool) {
 	if len(payload) == 0 {
 		return payload, make(map[string]bool)
 	}
 	doc := ojson.NewDoc(payload)
-	touched, mutated := applyPayloadConfigWithTrackedPathsForExecutorDoc(cfg, targetExecutor, model, protocol, fromProtocol, root, doc, original, requestedModel, requestPath, headers, trackedPaths...)
+	touched, mutated := applyPayloadConfigWithTrackedPathsForExecutorDoc(cfg, targetExecutor, model, protocol, fromProtocol, root, doc, original, requestedModel, requestPath, route, headers, trackedPaths...)
 	if !mutated {
 		return payload, touched
 	}
@@ -95,16 +96,16 @@ func ApplyPayloadConfigWithTrackedPathsForExecutor(cfg *config.Config, targetExe
 }
 
 // ApplyPayloadConfigWithTrackedPathsForExecutorDoc applies payload config in place on doc with target executor awareness.
-func ApplyPayloadConfigWithTrackedPathsForExecutorDoc(cfg *config.Config, targetExecutor, model, protocol, fromProtocol, root string, doc *ojson.Doc, original []byte, requestedModel, requestPath string, headers http.Header, trackedPaths ...string) map[string]bool {
-	touched, _ := applyPayloadConfigWithTrackedPathsForExecutorDoc(cfg, targetExecutor, model, protocol, fromProtocol, root, doc, original, requestedModel, requestPath, headers, trackedPaths...)
+func ApplyPayloadConfigWithTrackedPathsForExecutorDoc(cfg *config.Config, targetExecutor, model, protocol, fromProtocol, root string, doc *ojson.Doc, original []byte, requestedModel, requestPath, route string, headers http.Header, trackedPaths ...string) map[string]bool {
+	touched, _ := applyPayloadConfigWithTrackedPathsForExecutorDoc(cfg, targetExecutor, model, protocol, fromProtocol, root, doc, original, requestedModel, requestPath, route, headers, trackedPaths...)
 	return touched
 }
 
-func applyPayloadConfigWithTrackedPathsForExecutorDoc(cfg *config.Config, targetExecutor, model, protocol, fromProtocol, root string, doc *ojson.Doc, original []byte, requestedModel, requestPath string, headers http.Header, trackedPaths ...string) (map[string]bool, bool) {
-	return applyPayloadConfigWithTrackedPathsForExecutorAndAuthDoc(cfg, targetExecutor, model, protocol, fromProtocol, root, doc, original, requestedModel, requestPath, headers, nil, trackedPaths...)
+func applyPayloadConfigWithTrackedPathsForExecutorDoc(cfg *config.Config, targetExecutor, model, protocol, fromProtocol, root string, doc *ojson.Doc, original []byte, requestedModel, requestPath, route string, headers http.Header, trackedPaths ...string) (map[string]bool, bool) {
+	return applyPayloadConfigWithTrackedPathsForExecutorAndAuthDoc(cfg, targetExecutor, model, protocol, fromProtocol, root, doc, original, requestedModel, requestPath, headers, nil, route, trackedPaths...)
 }
 
-func applyPayloadConfigWithTrackedPathsForExecutorAndAuthDoc(cfg *config.Config, targetExecutor, model, protocol, fromProtocol, root string, doc *ojson.Doc, original []byte, requestedModel, requestPath string, headers http.Header, auth *cliproxyauth.Auth, trackedPaths ...string) (map[string]bool, bool) {
+func applyPayloadConfigWithTrackedPathsForExecutorAndAuthDoc(cfg *config.Config, targetExecutor, model, protocol, fromProtocol, root string, doc *ojson.Doc, original []byte, requestedModel, requestPath string, headers http.Header, auth *cliproxyauth.Auth, route string, trackedPaths ...string) (map[string]bool, bool) {
 	payloadConfigEvaluations.Add(1)
 	touched := make(map[string]bool)
 	if doc == nil || doc.Len() == 0 {
@@ -270,7 +271,7 @@ func applyPayloadConfigWithTrackedPathsForExecutorAndAuthDoc(cfg *config.Config,
 			// Apply default rules: first write wins per field across all matching rules.
 			for i := range rules.Default {
 				rule := &rules.Default[i]
-				if !payloadModelRulesMatchDoc(rule.Models, protocol, fromProtocol, headers, doc, root, candidates) {
+				if !payloadModelRulesMatchDoc(rule.Models, protocol, fromProtocol, headers, doc, root, candidates, route) {
 					continue
 				}
 				for path, value := range rule.Params {
@@ -298,7 +299,7 @@ func applyPayloadConfigWithTrackedPathsForExecutorAndAuthDoc(cfg *config.Config,
 			// Apply default raw rules: first write wins per field across all matching rules.
 			for i := range rules.DefaultRaw {
 				rule := &rules.DefaultRaw[i]
-				if !payloadModelRulesMatchDoc(rule.Models, protocol, fromProtocol, headers, doc, root, candidates) {
+				if !payloadModelRulesMatchDoc(rule.Models, protocol, fromProtocol, headers, doc, root, candidates, route) {
 					continue
 				}
 				for path, value := range rule.Params {
@@ -330,7 +331,7 @@ func applyPayloadConfigWithTrackedPathsForExecutorAndAuthDoc(cfg *config.Config,
 			// Apply override rules: last write wins per field across all matching rules.
 			for i := range rules.Override {
 				rule := &rules.Override[i]
-				if !payloadModelRulesMatchDoc(rule.Models, protocol, fromProtocol, headers, doc, root, candidates) {
+				if !payloadModelRulesMatchDoc(rule.Models, protocol, fromProtocol, headers, doc, root, candidates, route) {
 					continue
 				}
 				for path, value := range rule.Params {
@@ -352,7 +353,7 @@ func applyPayloadConfigWithTrackedPathsForExecutorAndAuthDoc(cfg *config.Config,
 			// Apply override raw rules: last write wins per field across all matching rules.
 			for i := range rules.OverrideRaw {
 				rule := &rules.OverrideRaw[i]
-				if !payloadModelRulesMatchDoc(rule.Models, protocol, fromProtocol, headers, doc, root, candidates) {
+				if !payloadModelRulesMatchDoc(rule.Models, protocol, fromProtocol, headers, doc, root, candidates, route) {
 					continue
 				}
 				for path, value := range rule.Params {
@@ -378,7 +379,7 @@ func applyPayloadConfigWithTrackedPathsForExecutorAndAuthDoc(cfg *config.Config,
 			// Replace selected strings after overrides and before final field deletion.
 			for i := range rules.Replace {
 				rule := &rules.Replace[i]
-				if rule.Validate() != nil || !payloadModelRulesMatchDoc(rule.Models, protocol, fromProtocol, headers, doc, root, candidates) {
+				if rule.Validate() != nil || !payloadModelRulesMatchDoc(rule.Models, protocol, fromProtocol, headers, doc, root, candidates, route) {
 					continue
 				}
 				if replacePayloadTextDoc(doc, protocol, root, rule, i, noteRuleWrite) {
@@ -388,7 +389,7 @@ func applyPayloadConfigWithTrackedPathsForExecutorAndAuthDoc(cfg *config.Config,
 			// Apply filter rules: remove matching paths from payload.
 			for i := range rules.Filter {
 				rule := &rules.Filter[i]
-				if !payloadModelRulesMatchDoc(rule.Models, protocol, fromProtocol, headers, doc, root, candidates) {
+				if !payloadModelRulesMatchDoc(rule.Models, protocol, fromProtocol, headers, doc, root, candidates, route) {
 					continue
 				}
 				for _, path := range rule.Params {
@@ -530,15 +531,15 @@ func retractAutoInjectedImageGenerationToolAtIndexDoc(doc *ojson.Doc, toolsPath 
 
 // ApplyPayloadConfigWithRequestTracked applies payload config and reports whether
 // an applied rule targeted trackedPath or one of its descendants.
-func ApplyPayloadConfigWithRequestTracked(cfg *config.Config, model, protocol, fromProtocol, root string, payload, original []byte, requestedModel string, requestPath string, headers http.Header, trackedPath string) ([]byte, bool) {
-	out, touched := ApplyPayloadConfigWithTrackedPaths(cfg, model, protocol, fromProtocol, root, payload, original, requestedModel, requestPath, headers, trackedPath)
+func ApplyPayloadConfigWithRequestTracked(cfg *config.Config, model, protocol, fromProtocol, root string, payload, original []byte, requestedModel string, requestPath, route string, headers http.Header, trackedPath string) ([]byte, bool) {
+	out, touched := ApplyPayloadConfigWithTrackedPaths(cfg, model, protocol, fromProtocol, root, payload, original, requestedModel, requestPath, route, headers, trackedPath)
 	return out, touched[trackedPath]
 }
 
 // ApplyPayloadConfigWithRequestTrackedDoc applies payload config in place on doc and reports whether
 // an applied rule targeted trackedPath or one of its descendants.
-func ApplyPayloadConfigWithRequestTrackedDoc(cfg *config.Config, model, protocol, fromProtocol, root string, doc *ojson.Doc, original []byte, requestedModel string, requestPath string, headers http.Header, trackedPath string) bool {
-	touched := ApplyPayloadConfigWithTrackedPathsDoc(cfg, model, protocol, fromProtocol, root, doc, original, requestedModel, requestPath, headers, trackedPath)
+func ApplyPayloadConfigWithRequestTrackedDoc(cfg *config.Config, model, protocol, fromProtocol, root string, doc *ojson.Doc, original []byte, requestedModel string, requestPath, route string, headers http.Header, trackedPath string) bool {
+	touched := ApplyPayloadConfigWithTrackedPathsDoc(cfg, model, protocol, fromProtocol, root, doc, original, requestedModel, requestPath, route, headers, trackedPath)
 	return touched[trackedPath]
 }
 
@@ -577,12 +578,15 @@ func shouldStripImageGeneration(mode config.DisableImageGenerationMode, requestP
 	}
 }
 
-func payloadModelRulesMatchDoc(rules []config.PayloadModelRule, protocol string, fromProtocol string, headers http.Header, doc *ojson.Doc, root string, models []string) bool {
+func payloadModelRulesMatchDoc(rules []config.PayloadModelRule, protocol string, fromProtocol string, headers http.Header, doc *ojson.Doc, root string, models []string, route string) bool {
 	if len(rules) == 0 || len(models) == 0 || doc == nil {
 		return false
 	}
 	for _, model := range models {
 		for _, entry := range rules {
+			if entry.Route != "" && entry.Route != route {
+				continue
+			}
 			name := strings.TrimSpace(entry.Name)
 			if name == "" {
 				continue
@@ -1379,6 +1383,18 @@ func PayloadRequestPath(opts cliproxyexecutor.Options) string {
 		return strings.TrimSpace(v)
 	case []byte:
 		return strings.TrimSpace(string(v))
+	default:
+		return ""
+	}
+}
+
+// PayloadRoute returns the matched endpoint route name from execution metadata.
+func PayloadRoute(opts cliproxyexecutor.Options) string {
+	switch route := opts.Metadata[cliproxyexecutor.RouteMetadataKey].(type) {
+	case string:
+		return strings.TrimSpace(route)
+	case []byte:
+		return strings.TrimSpace(string(route))
 	default:
 		return ""
 	}

@@ -15,6 +15,9 @@ const RequestedModelMetadataKey = "requested_model"
 // It is optional and may be absent for non-HTTP executions.
 const RequestPathMetadataKey = "request_path"
 
+// RouteMetadataKey stores the matched endpoint route name in Options.Metadata.
+const RouteMetadataKey = "route"
+
 // RequestIDMetadataKey stores the host request lifecycle identifier in Options.Metadata.
 const RequestIDMetadataKey = "request_id"
 

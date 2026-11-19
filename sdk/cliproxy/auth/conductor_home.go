@@ -1005,9 +1005,20 @@ func (m *Manager) pickNextViaHome(ctx context.Context, model string, opts clipro
 	return auth, executor, provider, nil
 }
 
-func (m *Manager) pickHomeDispatchSelection(ctx context.Context, model string, opts cliproxyexecutor.Options) (*HomeDispatchSelection, error) {
+func (m *Manager) pickHomeDispatchSelection(ctx context.Context, model string, opts cliproxyexecutor.Options) (result *HomeDispatchSelection, resultErr error) {
 	if m == nil {
 		return nil, &Error{Code: "auth_not_found", Message: "no auth available"}
+	}
+	// Home selections and retained sessions must not bypass endpoint selectors.
+	eligibility := authSelectionEligibilityForRequest(ctx, opts, m.endpointRoutes.Load())
+	if eligibility.routeSet {
+		defer func() {
+			if result != nil && !eligibility.allows(result.CloneAuth()) {
+				result.End("route_not_available")
+				result = nil
+				resultErr = &Error{Code: "auth_not_found", Message: "no auth available on route", HTTPStatus: http.StatusServiceUnavailable}
+			}
+		}()
 	}
 	if ctx == nil {
 		ctx = context.Background()

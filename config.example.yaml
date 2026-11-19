@@ -176,6 +176,21 @@ access:
 #     max-string-bytes: 256
 #     staging-retention: 1m
 
+# Optional named endpoint prefixes. Longest segment-boundary prefix wins.
+# Unmatched requests keep the normal routing and credential behavior.
+# Every nonempty selector must match; credentials never fall back outside a route.
+# Config API-key credentials have no auth file and can only match providers.
+# routes:
+#   - name: cyber
+#     path: /v1/cyber
+#     rewrite-to: /v1 # /v1/cyber/responses becomes /v1/responses.
+#     providers: [codex] # Optional, case-insensitive provider names.
+#     auth-files: [codex-cyber.json] # Optional, exact auth file base names.
+#   - name: mirrored
+#     path: /scoped
+#     rewrite-to: "" # Strip /scoped to mirror the whole API tree; exact match becomes /.
+#     providers: [claude]
+
 # Routing strategy for selecting credentials when multiple match.
 routing:
   strategy: "round-robin" # round-robin (default), weighted-round-robin, fill-first
@@ -312,6 +327,7 @@ requests:
   #         - name: "gemini-2.5-pro" # Supports wildcards (e.g., "gemini-*")
   #           protocol: "gemini" # restricts the rule to a specific protocol, options: openai, gemini, claude, codex, antigravity, meta
   #           from-protocol: "responses" # restricts the rule to the source protocol, options: openai, responses, gemini, claude
+  #           route: "cyber" # Optional: match only requests on this named endpoint route.
   #           headers: # all configured request headers must match; values support "*" wildcards
   #             X-Client-Tier: "tenant-*-region-*"
   #           match: # all payload JSON paths must equal the configured values
